@@ -1,234 +1,70 @@
 "use client"
 
-import type React from "react"
-
 import { useState } from "react"
 import { Button } from "@/components/ui/button"
-import { Card, CardContent, CardDescription, CardHeader, CardTitle } from "@/components/ui/card"
-import { Input } from "@/components/ui/input"
-import { Label } from "@/components/ui/label"
-import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/components/ui/tabs"
-import { Heart, User, Mail, Phone, Lock } from "lucide-react"
-import type { User as UserType } from "../types/user"
+import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card"
+import LoginModal from "./login-modal"
+import type { User } from "../types/user"
 
 interface LoginPageProps {
-  onLogin: (user: UserType) => void
+  onLogin: (user: User) => void
 }
 
 export default function LoginPage({ onLogin }: LoginPageProps) {
-  const [loginData, setLoginData] = useState({ email: "", password: "" })
-  const [registerData, setRegisterData] = useState({
-    name: "",
-    email: "",
-    phone: "",
-    password: "",
-    confirmPassword: "",
-  })
-
-  const handleLogin = (e: React.FormEvent) => {
-    e.preventDefault()
-
-    // Simulação de login - admin@admin.com é admin
-    const isAdmin = loginData.email === "admin@admin.com"
-
-    const user: UserType = {
-      id: Date.now().toString(),
-      name: isAdmin ? "Administrador" : "Cliente",
-      email: loginData.email,
-      phone: isAdmin ? "(11) 99999-9999" : "",
-      isAdmin,
-    }
-
-    onLogin(user)
-  }
-
-  const handleRegister = (e: React.FormEvent) => {
-    e.preventDefault()
-
-    if (registerData.password !== registerData.confirmPassword) {
-      alert("Senhas não coincidem!")
-      return
-    }
-
-    const user: UserType = {
-      id: Date.now().toString(),
-      name: registerData.name,
-      email: registerData.email,
-      phone: registerData.phone,
-      isAdmin: false,
-    }
-
-    onLogin(user)
-  }
+  const [showModal, setShowModal] = useState(false)
 
   return (
-    <div className="min-h-screen bg-gradient-to-br from-pink-50 to-rose-100 flex items-center justify-center p-4">
-      <div className="w-full max-w-md">
-        {/* Logo */}
+    <div className="min-h-screen bg-gradient-to-br from-amber-50 to-orange-100 flex items-center justify-center p-4">
+      <div className="max-w-4xl w-full">
+        {/* Hero Section */}
         <div className="text-center mb-8">
-          <div className="flex items-center justify-center gap-3 mb-4">
-            <Heart className="h-12 w-12 text-pink-500" />
-            <div>
-              <h1 className="text-3xl font-bold text-gray-800">Doce Amor</h1>
-              <p className="text-gray-600">Bem Casados Artesanais</p>
-            </div>
-          </div>
+          <h1 className="text-5xl font-bold text-amber-800 mb-4">🍰 Bem Casados Artesanais</h1>
+          <p className="text-xl text-gray-600 mb-2">Sabores únicos para momentos especiais</p>
+          <p className="text-lg text-gray-500">Personalize, peça e receba em casa</p>
         </div>
 
-        <Tabs defaultValue="login" className="w-full">
-          <TabsList className="grid w-full grid-cols-2">
-            <TabsTrigger value="login">Entrar</TabsTrigger>
-            <TabsTrigger value="register">Cadastrar</TabsTrigger>
-          </TabsList>
+        {/* Features Grid */}
+        <div className="grid grid-cols-1 md:grid-cols-3 gap-6 mb-8">
+          <Card className="text-center">
+            <CardContent className="p-6">
+              <div className="text-4xl mb-4">🎨</div>
+              <h3 className="font-semibold mb-2">Personalize</h3>
+              <p className="text-gray-600">Escolha recheios e embalagens do seu jeito</p>
+            </CardContent>
+          </Card>
 
-          <TabsContent value="login">
-            <Card>
-              <CardHeader>
-                <CardTitle className="flex items-center gap-2">
-                  <User className="h-5 w-5" />
-                  Fazer Login
-                </CardTitle>
-                <CardDescription>Entre com sua conta para montar seu bem casado</CardDescription>
-              </CardHeader>
-              <CardContent>
-                <form onSubmit={handleLogin} className="space-y-4">
-                  <div>
-                    <Label htmlFor="login-email">Email</Label>
-                    <div className="relative">
-                      <Mail className="absolute left-3 top-3 h-4 w-4 text-gray-400" />
-                      <Input
-                        id="login-email"
-                        type="email"
-                        placeholder="seu@email.com"
-                        className="pl-10"
-                        value={loginData.email}
-                        onChange={(e) => setLoginData({ ...loginData, email: e.target.value })}
-                        required
-                      />
-                    </div>
-                  </div>
-                  <div>
-                    <Label htmlFor="login-password">Senha</Label>
-                    <div className="relative">
-                      <Lock className="absolute left-3 top-3 h-4 w-4 text-gray-400" />
-                      <Input
-                        id="login-password"
-                        type="password"
-                        placeholder="••••••••"
-                        className="pl-10"
-                        value={loginData.password}
-                        onChange={(e) => setLoginData({ ...loginData, password: e.target.value })}
-                        required
-                      />
-                    </div>
-                  </div>
-                  <Button type="submit" className="w-full bg-pink-500 hover:bg-pink-600">
-                    Entrar
-                  </Button>
-                </form>
+          <Card className="text-center">
+            <CardContent className="p-6">
+              <div className="text-4xl mb-4">📱</div>
+              <h3 className="font-semibold mb-2">Peça Fácil</h3>
+              <p className="text-gray-600">Envie seu pedido direto pelo WhatsApp</p>
+            </CardContent>
+          </Card>
 
-                <div className="mt-4 p-3 bg-blue-50 rounded-lg text-sm">
-                  <p className="font-medium text-blue-800">Para testar:</p>
-                  <p className="text-blue-600">Admin: admin@admin.com</p>
-                  <p className="text-blue-600">Cliente: qualquer@email.com</p>
-                </div>
-              </CardContent>
-            </Card>
-          </TabsContent>
+          <Card className="text-center">
+            <CardContent className="p-6">
+              <div className="text-4xl mb-4">🚚</div>
+              <h3 className="font-semibold mb-2">Receba em Casa</h3>
+              <p className="text-gray-600">Entregamos fresquinhos na sua porta</p>
+            </CardContent>
+          </Card>
+        </div>
 
-          <TabsContent value="register">
-            <Card>
-              <CardHeader>
-                <CardTitle className="flex items-center gap-2">
-                  <User className="h-5 w-5" />
-                  Criar Conta
-                </CardTitle>
-                <CardDescription>Cadastre-se para fazer seus pedidos</CardDescription>
-              </CardHeader>
-              <CardContent>
-                <form onSubmit={handleRegister} className="space-y-4">
-                  <div>
-                    <Label htmlFor="register-name">Nome Completo</Label>
-                    <div className="relative">
-                      <User className="absolute left-3 top-3 h-4 w-4 text-gray-400" />
-                      <Input
-                        id="register-name"
-                        placeholder="Seu nome completo"
-                        className="pl-10"
-                        value={registerData.name}
-                        onChange={(e) => setRegisterData({ ...registerData, name: e.target.value })}
-                        required
-                      />
-                    </div>
-                  </div>
-                  <div>
-                    <Label htmlFor="register-email">Email</Label>
-                    <div className="relative">
-                      <Mail className="absolute left-3 top-3 h-4 w-4 text-gray-400" />
-                      <Input
-                        id="register-email"
-                        type="email"
-                        placeholder="seu@email.com"
-                        className="pl-10"
-                        value={registerData.email}
-                        onChange={(e) => setRegisterData({ ...registerData, email: e.target.value })}
-                        required
-                      />
-                    </div>
-                  </div>
-                  <div>
-                    <Label htmlFor="register-phone">Telefone</Label>
-                    <div className="relative">
-                      <Phone className="absolute left-3 top-3 h-4 w-4 text-gray-400" />
-                      <Input
-                        id="register-phone"
-                        placeholder="(11) 99999-9999"
-                        className="pl-10"
-                        value={registerData.phone}
-                        onChange={(e) => setRegisterData({ ...registerData, phone: e.target.value })}
-                        required
-                      />
-                    </div>
-                  </div>
-                  <div>
-                    <Label htmlFor="register-password">Senha</Label>
-                    <div className="relative">
-                      <Lock className="absolute left-3 top-3 h-4 w-4 text-gray-400" />
-                      <Input
-                        id="register-password"
-                        type="password"
-                        placeholder="••••••••"
-                        className="pl-10"
-                        value={registerData.password}
-                        onChange={(e) => setRegisterData({ ...registerData, password: e.target.value })}
-                        required
-                      />
-                    </div>
-                  </div>
-                  <div>
-                    <Label htmlFor="register-confirm">Confirmar Senha</Label>
-                    <div className="relative">
-                      <Lock className="absolute left-3 top-3 h-4 w-4 text-gray-400" />
-                      <Input
-                        id="register-confirm"
-                        type="password"
-                        placeholder="••••••••"
-                        className="pl-10"
-                        value={registerData.confirmPassword}
-                        onChange={(e) => setRegisterData({ ...registerData, confirmPassword: e.target.value })}
-                        required
-                      />
-                    </div>
-                  </div>
-                  <Button type="submit" className="w-full bg-pink-500 hover:bg-pink-600">
-                    Criar Conta
-                  </Button>
-                </form>
-              </CardContent>
-            </Card>
-          </TabsContent>
-        </Tabs>
+        {/* CTA Section */}
+        <Card className="text-center">
+          <CardHeader>
+            <CardTitle className="text-2xl">Pronto para começar?</CardTitle>
+          </CardHeader>
+          <CardContent>
+            <p className="text-gray-600 mb-6">Faça login ou cadastre-se para montar seus bem casados personalizados</p>
+            <Button size="lg" className="text-lg px-8 py-3" onClick={() => setShowModal(true)}>
+              Entrar / Cadastrar
+            </Button>
+          </CardContent>
+        </Card>
       </div>
+
+      <LoginModal isOpen={showModal} onClose={() => setShowModal(false)} onLogin={onLogin} />
     </div>
   )
 }

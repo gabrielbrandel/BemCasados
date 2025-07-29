@@ -8,11 +8,11 @@ import { Label } from "@/components/ui/label"
 import { Textarea } from "@/components/ui/textarea"
 import { Badge } from "@/components/ui/badge"
 import { Heart, Package, ShoppingCart, Sparkles, Plus, Trash2, Edit, Save } from "lucide-react"
-import type { User } from "../types/user"
+import type { User as UserType } from "../types/user"
 import type { BemCasado, Recheio, Embalagem, ItemCarrinho } from "../types/bem-casado"
 
 interface BemCasadoBuilderProps {
-  user: User
+  user: UserType
 }
 
 export default function BemCasadoBuilder({ user }: BemCasadoBuilderProps) {
@@ -34,7 +34,7 @@ export default function BemCasadoBuilder({ user }: BemCasadoBuilderProps) {
     if (carrinhoSalvo) {
       setCarrinho(JSON.parse(carrinhoSalvo))
     }
-  }, [carrinhoKey])
+  }, [carrinhoKey, user.id])
 
   // Salvar carrinho no localStorage sempre que mudar
   useEffect(() => {
@@ -197,34 +197,34 @@ export default function BemCasadoBuilder({ user }: BemCasadoBuilderProps) {
     localStorage.setItem("bem-casado-pedidos", JSON.stringify(pedidosExistentes))
 
     // Criar mensagem detalhada para WhatsApp
-    let mensagem = `🍰 *NOVO PEDIDO DE BEM CASADO* 🍰
+    let mensagem = `🍰 NOVO PEDIDO DE BEM CASADO 🍰
 
-👤 *Cliente:* ${user.name}
-📞 *Telefone:* ${user.phone}
-📧 *Email:* ${user.email}
-📍 *Endereço:* ${user.endereco}
+👤 Cliente: ${user.nome}
+📞 Telefone: ${user.telefone}
+📧 Email: ${user.email}
+📍 Endereço: ${user.endereco}
 
-📦 *ITENS DO PEDIDO:*
+📦 ITENS DO PEDIDO:
 `
 
     carrinho.forEach((item, index) => {
       mensagem += `
-${index + 1}. *${item.recheio.nome}* + *${item.embalagem.nome}*
-   Quantidade: ${item.quantidade} unidades
-   Subtotal: R$ ${item.subtotal.toFixed(2)}`
+${index + 1}. ${item.recheio.nome} + ${item.embalagem.nome}
+ Quantidade: ${item.quantidade} unidades
+ Subtotal: R$ ${item.subtotal.toFixed(2)}`
 
       if (item.observacoes) {
         mensagem += `
-   Obs: ${item.observacoes}`
+ Obs: ${item.observacoes}`
       }
       mensagem += "\n"
     })
 
     mensagem += `
-💰 *VALOR TOTAL: R$ ${calcularTotalCarrinho().toFixed(2)}*
+💰 VALOR TOTAL: R$ ${calcularTotalCarrinho().toFixed(2)}
 
-🔢 *Total de Unidades:* ${carrinho.reduce((total, item) => total + item.quantidade, 0)}
-    `
+🔢 Total de Unidades: ${carrinho.reduce((total, item) => total + item.quantidade, 0)}
+`
 
     const whatsappUrl = `https://wa.me/5511999999999?text=${encodeURIComponent(mensagem.trim())}`
     window.open(whatsappUrl, "_blank")
@@ -245,9 +245,9 @@ ${index + 1}. *${item.recheio.nome}* + *${item.embalagem.nome}*
       <div className="grid lg:grid-cols-3 gap-8">
         {/* Área de Montagem Visual */}
         <div className="lg:col-span-2 space-y-6">
-          <Card className="bg-gradient-to-br from-pink-50 to-rose-50">
+          <Card className="bg-gradient-to-br from-pink-50 to-rose-50 border-pink-200">
             <CardHeader>
-              <CardTitle className="flex items-center gap-2">
+              <CardTitle className="flex items-center gap-2 text-pink-700">
                 <Sparkles className="h-5 w-5 text-pink-500" />
                 {editandoItem ? "Editando Item" : "Monte seu Bem Casado"}
               </CardTitle>
@@ -290,39 +290,49 @@ ${index + 1}. *${item.recheio.nome}* + *${item.embalagem.nome}*
               {(bemCasado.recheio || bemCasado.embalagem) && (
                 <div className="space-y-2 text-center mb-6">
                   {bemCasado.recheio && (
-                    <Badge variant="secondary" className="mr-2">
+                    <Badge variant="secondary" className="mr-2 bg-pink-100 text-pink-800">
                       Recheio: {bemCasado.recheio.nome}
                     </Badge>
                   )}
-                  {bemCasado.embalagem && <Badge variant="secondary">Embalagem: {bemCasado.embalagem.nome}</Badge>}
+                  {bemCasado.embalagem && (
+                    <Badge variant="secondary" className="bg-pink-100 text-pink-800">
+                      Embalagem: {bemCasado.embalagem.nome}
+                    </Badge>
+                  )}
                 </div>
               )}
 
               {/* Formulário de configuração */}
               <div className="space-y-4">
                 <div>
-                  <Label htmlFor="quantidade">Quantidade (mínimo 50)</Label>
+                  <Label htmlFor="quantidade" className="text-gray-700">
+                    Quantidade (mínimo 50)
+                  </Label>
                   <Input
                     id="quantidade"
                     type="number"
                     min="50"
                     value={bemCasado.quantidade}
                     onChange={(e) => setBemCasado({ ...bemCasado, quantidade: Number.parseInt(e.target.value) || 50 })}
+                    className="border-pink-200 focus:border-pink-500 focus:ring-pink-500"
                   />
                 </div>
 
                 <div>
-                  <Label htmlFor="observacoes">Observações para este item</Label>
+                  <Label htmlFor="observacoes" className="text-gray-700">
+                    Observações para este item
+                  </Label>
                   <Textarea
                     id="observacoes"
                     placeholder="Observações específicas para esta combinação..."
                     value={bemCasado.observacoes}
                     onChange={(e) => setBemCasado({ ...bemCasado, observacoes: e.target.value })}
+                    className="border-pink-200 focus:border-pink-500 focus:ring-pink-500"
                   />
                 </div>
 
                 {bemCasado.recheio && bemCasado.embalagem && (
-                  <div className="p-4 bg-pink-50 rounded-lg">
+                  <div className="p-4 bg-pink-50 rounded-lg border border-pink-200">
                     <div className="text-lg font-bold text-pink-600">
                       Subtotal: R${" "}
                       {((bemCasado.recheio.preco + bemCasado.embalagem.preco) * bemCasado.quantidade).toFixed(2)}
@@ -364,9 +374,9 @@ ${index + 1}. *${item.recheio.nome}* + *${item.embalagem.nome}*
           {/* Opções de Recheio e Embalagem */}
           <div className="grid md:grid-cols-2 gap-6">
             {/* Recheios */}
-            <Card>
+            <Card className="border-pink-200">
               <CardHeader>
-                <CardTitle className="flex items-center gap-2">
+                <CardTitle className="flex items-center gap-2 text-pink-700">
                   <Heart className="h-5 w-5 text-pink-500" />
                   Escolha o Recheio
                 </CardTitle>
@@ -395,9 +405,9 @@ ${index + 1}. *${item.recheio.nome}* + *${item.embalagem.nome}*
             </Card>
 
             {/* Embalagens */}
-            <Card>
+            <Card className="border-pink-200">
               <CardHeader>
-                <CardTitle className="flex items-center gap-2">
+                <CardTitle className="flex items-center gap-2 text-pink-700">
                   <Package className="h-5 w-5 text-pink-500" />
                   Escolha a Embalagem
                 </CardTitle>
@@ -432,10 +442,10 @@ ${index + 1}. *${item.recheio.nome}* + *${item.embalagem.nome}*
 
         {/* Carrinho */}
         <div className="space-y-6">
-          <Card>
+          <Card className="border-pink-200">
             <CardHeader>
               <div className="flex items-center justify-between">
-                <CardTitle className="flex items-center gap-2">
+                <CardTitle className="flex items-center gap-2 text-pink-700">
                   <ShoppingCart className="h-5 w-5 text-pink-500" />
                   Carrinho ({carrinho.length})
                 </CardTitle>
@@ -444,7 +454,7 @@ ${index + 1}. *${item.recheio.nome}* + *${item.embalagem.nome}*
                     onClick={limparCarrinho}
                     variant="outline"
                     size="sm"
-                    className="text-red-600 hover:text-red-700 bg-transparent"
+                    className="text-red-600 hover:text-red-700 border-red-300 hover:bg-red-50 bg-transparent"
                   >
                     Limpar
                   </Button>
@@ -461,7 +471,7 @@ ${index + 1}. *${item.recheio.nome}* + *${item.embalagem.nome}*
               ) : (
                 <div className="space-y-4">
                   {carrinho.map((item) => (
-                    <div key={item.id} className="border rounded-lg p-4 space-y-3">
+                    <div key={item.id} className="border rounded-lg p-4 space-y-3 border-pink-200">
                       <div className="flex items-start justify-between">
                         <div className="flex-1">
                           <div className="font-medium text-sm">
@@ -481,7 +491,7 @@ ${index + 1}. *${item.recheio.nome}* + *${item.embalagem.nome}*
                           onClick={() => editarItem(item)}
                           size="sm"
                           variant="outline"
-                          className="flex-1"
+                          className="flex-1 border-pink-300 text-pink-600 hover:bg-pink-50"
                           disabled={editandoItem !== null}
                         >
                           <Edit className="h-3 w-3 mr-1" />
@@ -491,7 +501,7 @@ ${index + 1}. *${item.recheio.nome}* + *${item.embalagem.nome}*
                           onClick={() => removerDoCarrinho(item.id)}
                           size="sm"
                           variant="outline"
-                          className="text-red-600 hover:text-red-700"
+                          className="text-red-600 hover:text-red-700 border-red-300 hover:bg-red-50"
                         >
                           <Trash2 className="h-3 w-3" />
                         </Button>
@@ -499,7 +509,7 @@ ${index + 1}. *${item.recheio.nome}* + *${item.embalagem.nome}*
                     </div>
                   ))}
 
-                  <div className="border-t pt-4">
+                  <div className="border-t pt-4 border-pink-200">
                     <div className="flex justify-between items-center mb-4">
                       <span className="font-bold">Total:</span>
                       <span className="text-2xl font-bold text-pink-600">R$ {calcularTotalCarrinho().toFixed(2)}</span>

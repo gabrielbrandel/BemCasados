@@ -1,17 +1,18 @@
 "use client"
 
 import { useState, useEffect } from "react"
-import { Card, CardContent, CardDescription, CardHeader, CardTitle } from "@/components/ui/card"
+import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card"
+import { Button } from "@/components/ui/button"
 import { Badge } from "@/components/ui/badge"
-import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select"
-import { Package, Users, DollarSign, Clock, CheckCircle, XCircle } from "lucide-react"
+import { Package, Clock, CheckCircle, XCircle, Trash2, Settings } from "lucide-react"
 
 interface Pedido {
   id: string
   usuario: {
-    name: string
+    id: string
+    nome: string
     email: string
-    phone: string
+    telefone: string
     endereco: string
   }
   itens: Array<{
@@ -29,13 +30,18 @@ interface Pedido {
 export default function AdminPanel() {
   const [pedidos, setPedidos] = useState<Pedido[]>([])
   const [filtroStatus, setFiltroStatus] = useState<string>("todos")
+  const [busca, setBusca] = useState("")
+  const [pedidoSelecionado, setPedidoSelecionado] = useState<Pedido | null>(null)
 
   useEffect(() => {
-    const pedidosSalvos = JSON.parse(localStorage.getItem("bem-casado-pedidos") || "[]")
-    setPedidos(pedidosSalvos)
+    const pedidosSalvos = localStorage.getItem("bem-casado-pedidos")
+    if (pedidosSalvos) {
+      const todosPedidos = JSON.parse(pedidosSalvos)
+      setPedidos(todosPedidos.sort((a: Pedido, b: Pedido) => new Date(b.data).getTime() - new Date(a.data).getTime()))
+    }
   }, [])
 
-  const atualizarStatus = (pedidoId: string, novoStatus: string) => {
+  const atualizarStatusPedido = (pedidoId: string, novoStatus: "pendente" | "producao" | "entregue") => {
     const pedidosAtualizados = pedidos.map((pedido) =>
       pedido.id === pedidoId ? { ...pedido, status: novoStatus } : pedido,
     )
@@ -43,242 +49,398 @@ export default function AdminPanel() {
     localStorage.setItem("bem-casado-pedidos", JSON.stringify(pedidosAtualizados))
   }
 
-  const pedidosFiltrados = pedidos.filter(
-    (pedido) => filtroStatus === "todos" || pedido.status.toLowerCase() === filtroStatus,
-  )
-
-  const estatisticas = {
-    totalPedidos: pedidos.length,
-    pedidosPendentes: pedidos.filter((p) => p.status === "Pendente").length,
-    pedidosConfirmados: pedidos.filter((p) => p.status === "Confirmado").length,
-    faturamentoTotal: pedidos.reduce((total, pedido) => total + pedido.total, 0),
+  const excluirPedido = (pedidoId: string) => {
+    if (confirm("Tem certeza que deseja excluir este pedido?")) {
+      const pedidosAtualizados = pedidos.filter((pedido) => pedido.id !== pedidoId)
+      setPedidos(pedidosAtualizados)
+      localStorage.setItem("bem-casado-pedidos", JSON.stringify(pedidosAtualizados))
+    }
   }
+
+  const pedidosFiltrados = pedidos.filter((pedido) => {
+    const matchStatus = filtroStatus === "todos" || pedido.status.toLowerCase() === filtroStatus.toLowerCase()
+    const matchBusca =
+      busca === "" ||
+      pedido.usuario.nome.toLowerCase().includes(busca.toLowerCase()) ||
+      pedido.id.includes(busca) ||
+      pedido.usuario.email.toLowerCase().includes(busca.toLowerCase())
+    return matchStatus && matchBusca
+  })
 
   const getStatusColor = (status: string) => {
     switch (status) {
-      case "Pendente":
-        return "bg-yellow-100 text-yellow-800"
-      case "Confirmado":
-        return "bg-blue-100 text-blue-800"
-      case "Em Produção":
-        return "bg-purple-100 text-purple-800"
-      case "Pronto":
-        return "bg-green-100 text-green-800"
-      case "Entregue":
-        return "bg-gray-100 text-gray-800"
-      case "Cancelado":
-        return "bg-red-100 text-red-800"
+      case "pendente":
+        return "bg-yellow-100 text-yellow-800 border-yellow-200"
+      case "producao":
+        return "bg-blue-100 text-blue-800 border-blue-200"
+      case "entregue":
+        return "bg-gray-100 text-gray-800 border-gray-200"
+      case "cancelado":
+        return "bg-red-100 text-red-800 border-red-200"
       default:
-        return "bg-gray-100 text-gray-800"
+        return "bg-gray-100 text-gray-800 border-gray-200"
     }
   }
 
   const getStatusIcon = (status: string) => {
     switch (status) {
-      case "Pendente":
+      case "pendente":
         return <Clock className="h-4 w-4" />
-      case "Confirmado":
-        return <CheckCircle className="h-4 w-4" />
-      case "Em Produção":
+      case "producao":
         return <Package className="h-4 w-4" />
-      case "Pronto":
+      case "entregue":
         return <CheckCircle className="h-4 w-4" />
-      case "Entregue":
-        return <CheckCircle className="h-4 w-4" />
-      case "Cancelado":
+      case "cancelado":
         return <XCircle className="h-4 w-4" />
       default:
         return <Clock className="h-4 w-4" />
     }
   }
 
-  return (
-    <div className="container mx-auto px-4 py-8">
-      <div className="mb-8">
-        <h2 className="text-3xl font-bold text-gray-800 mb-2">Painel Administrativo</h2>
-        <p className="text-gray-600">Gerencie todos os pedidos de bem casado</p>
-      </div>
+  const exportarDados = () => {
+    const dadosExport = pedidos.map((pedido) => ({
+      id: pedido.id,
+      cliente: pedido.usuario.nome,
+      email: pedido.usuario.email,
+      telefone: pedido.usuario.telefone,
+      total: pedido.total,
+      status: pedido.status,
+      data: new Date(pedido.data).toLocaleDateString("pt-BR"),
+      itens: pedido.itens.length,
+      unidades: pedido.itens.reduce((total, item) => total + item.quantidade, 0),
+    }))
 
-      {/* Estatísticas */}
-      <div className="grid md:grid-cols-4 gap-6 mb-8">
-        <Card>
-          <CardContent className="p-6">
-            <div className="flex items-center justify-between">
-              <div>
-                <p className="text-sm font-medium text-gray-600">Total de Pedidos</p>
-                <p className="text-2xl font-bold text-gray-900">{estatisticas.totalPedidos}</p>
-              </div>
-              <Package className="h-8 w-8 text-pink-500" />
-            </div>
-          </CardContent>
-        </Card>
+    const csv = [
+      "ID,Cliente,Email,Telefone,Total,Status,Data,Itens,Unidades",
+      ...dadosExport.map((row) => Object.values(row).join(",")),
+    ].join("\n")
 
-        <Card>
-          <CardContent className="p-6">
-            <div className="flex items-center justify-between">
-              <div>
-                <p className="text-sm font-medium text-gray-600">Pendentes</p>
-                <p className="text-2xl font-bold text-yellow-600">{estatisticas.pedidosPendentes}</p>
-              </div>
-              <Clock className="h-8 w-8 text-yellow-500" />
-            </div>
-          </CardContent>
-        </Card>
+    const blob = new Blob([csv], { type: "text/csv" })
+    const url = window.URL.createObjectURL(blob)
+    const a = document.createElement("a")
+    a.href = url
+    a.download = `pedidos-bem-casados-${new Date().toISOString().split("T")[0]}.csv`
+    a.click()
+  }
 
-        <Card>
-          <CardContent className="p-6">
-            <div className="flex items-center justify-between">
-              <div>
-                <p className="text-sm font-medium text-gray-600">Confirmados</p>
-                <p className="text-2xl font-bold text-blue-600">{estatisticas.pedidosConfirmados}</p>
-              </div>
-              <CheckCircle className="h-8 w-8 text-blue-500" />
-            </div>
-          </CardContent>
-        </Card>
+  if (pedidoSelecionado) {
+    return (
+      <div className="container mx-auto px-4 py-8">
+        <div className="mb-6">
+          <Button
+            variant="outline"
+            onClick={() => setPedidoSelecionado(null)}
+            className="mb-4 border-pink-300 text-pink-600 hover:bg-pink-50"
+          >
+            ← Voltar aos Pedidos
+          </Button>
+          <h2 className="text-3xl font-bold text-gray-800">Detalhes do Pedido #{pedidoSelecionado.id.slice(-6)}</h2>
+        </div>
 
-        <Card>
-          <CardContent className="p-6">
-            <div className="flex items-center justify-between">
-              <div>
-                <p className="text-sm font-medium text-gray-600">Faturamento</p>
-                <p className="text-2xl font-bold text-green-600">R$ {estatisticas.faturamentoTotal.toFixed(2)}</p>
-              </div>
-              <DollarSign className="h-8 w-8 text-green-500" />
-            </div>
-          </CardContent>
-        </Card>
-      </div>
-
-      {/* Filtros */}
-      <div className="mb-6">
-        <Select value={filtroStatus} onValueChange={setFiltroStatus}>
-          <SelectTrigger className="w-48">
-            <SelectValue placeholder="Filtrar por status" />
-          </SelectTrigger>
-          <SelectContent>
-            <SelectItem value="todos">Todos os Pedidos</SelectItem>
-            <SelectItem value="pendente">Pendentes</SelectItem>
-            <SelectItem value="confirmado">Confirmados</SelectItem>
-            <SelectItem value="em produção">Em Produção</SelectItem>
-            <SelectItem value="pronto">Prontos</SelectItem>
-            <SelectItem value="entregue">Entregues</SelectItem>
-            <SelectItem value="cancelado">Cancelados</SelectItem>
-          </SelectContent>
-        </Select>
-      </div>
-
-      {/* Lista de Pedidos */}
-      <div className="space-y-4">
-        {pedidosFiltrados.length === 0 ? (
-          <Card>
-            <CardContent className="p-8 text-center">
-              <Package className="h-12 w-12 text-gray-400 mx-auto mb-4" />
-              <p className="text-gray-500">Nenhum pedido encontrado</p>
-            </CardContent>
-          </Card>
-        ) : (
-          pedidosFiltrados.map((pedido) => (
-            <Card key={pedido.id}>
+        <div className="grid lg:grid-cols-3 gap-8">
+          <div className="lg:col-span-2">
+            <Card className="border-pink-200">
               <CardHeader>
                 <div className="flex items-center justify-between">
                   <div>
-                    <CardTitle className="text-lg">Pedido #{pedido.id.slice(-6)}</CardTitle>
-                    <CardDescription>
-                      {new Date(pedido.data).toLocaleDateString("pt-BR")} às{" "}
-                      {new Date(pedido.data).toLocaleTimeString("pt-BR")}
-                    </CardDescription>
+                    <CardTitle className="text-pink-700">Pedido #{pedidoSelecionado.id.slice(-6)}</CardTitle>
+                    <p className="text-sm text-gray-600 mt-1">
+                      {new Date(pedidoSelecionado.data).toLocaleDateString("pt-BR")} às{" "}
+                      {new Date(pedidoSelecionado.data).toLocaleTimeString("pt-BR")}
+                    </p>
                   </div>
-                  <Badge className={getStatusColor(pedido.status)}>
+                  <Badge className={`${getStatusColor(pedidoSelecionado.status)} border`}>
                     <div className="flex items-center gap-1">
-                      {getStatusIcon(pedido.status)}
-                      {pedido.status}
+                      {getStatusIcon(pedidoSelecionado.status)}
+                      {pedidoSelecionado.status}
                     </div>
                   </Badge>
                 </div>
               </CardHeader>
               <CardContent>
-                <div className="grid md:grid-cols-2 gap-6">
+                <div className="space-y-6">
+                  {/* Informações do Cliente */}
                   <div>
-                    <h4 className="font-semibold mb-2 flex items-center gap-2">
-                      <Users className="h-4 w-4" />
-                      Dados do Cliente
-                    </h4>
-                    <div className="space-y-1 text-sm">
-                      <p>
-                        <strong>Nome:</strong> {pedido.usuario.name}
-                      </p>
-                      <p>
-                        <strong>Email:</strong> {pedido.usuario.email}
-                      </p>
-                      <p>
-                        <strong>Telefone:</strong> {pedido.usuario.phone}
-                      </p>
-                      <p>
-                        <strong>Endereço:</strong> {pedido.usuario.endereco}
-                      </p>
-                    </div>
-                  </div>
-
-                  <div>
-                    <h4 className="font-semibold mb-2 flex items-center gap-2">
-                      <Package className="h-4 w-4" />
-                      Itens do Pedido
-                    </h4>
-                    <div className="space-y-2 text-sm">
-                      {pedido.itens.map((item, index) => (
-                        <div key={index} className="bg-gray-50 p-2 rounded">
-                          <p>
-                            <strong>{item.recheio.nome}</strong> + <strong>{item.embalagem.nome}</strong>
-                          </p>
-                          <p>Quantidade: {item.quantidade} unidades</p>
-                          <p>
-                            Subtotal: <span className="text-green-600 font-bold">R$ {item.subtotal.toFixed(2)}</span>
-                          </p>
-                          {item.observacoes && <p className="text-gray-600 italic">Obs: {item.observacoes}</p>}
+                    <h4 className="font-semibold text-lg text-pink-700 mb-3">Informações do Cliente</h4>
+                    <div className="bg-pink-50 rounded-lg p-4 border border-pink-200">
+                      <div className="grid md:grid-cols-2 gap-4">
+                        <div>
+                          <p className="text-sm text-gray-600">Nome</p>
+                          <p className="font-medium">{pedidoSelecionado.usuario.nome}</p>
                         </div>
-                      ))}
-                      <div className="border-t pt-2 mt-2">
-                        <p>
-                          <strong>Total Geral:</strong>{" "}
-                          <span className="text-green-600 font-bold">R$ {pedido.total.toFixed(2)}</span>
-                        </p>
-                        <p>
-                          <strong>Total de Unidades:</strong>{" "}
-                          {pedido.itens.reduce((total, item) => total + item.quantidade, 0)}
-                        </p>
+                        <div>
+                          <p className="text-sm text-gray-600">Email</p>
+                          <p className="font-medium">{pedidoSelecionado.usuario.email}</p>
+                        </div>
+                        <div>
+                          <p className="text-sm text-gray-600">Telefone</p>
+                          <p className="font-medium">{pedidoSelecionado.usuario.telefone}</p>
+                        </div>
+                        <div>
+                          <p className="text-sm text-gray-600">Endereço</p>
+                          <p className="font-medium">{pedidoSelecionado.usuario.endereco}</p>
+                        </div>
                       </div>
                     </div>
                   </div>
-                </div>
 
-                {pedido.bemCasado.observacoes && (
-                  <div className="mt-4">
-                    <h4 className="font-semibold mb-2">Observações:</h4>
-                    <p className="text-sm text-gray-600 bg-gray-50 p-3 rounded-lg">{pedido.bemCasado.observacoes}</p>
+                  {/* Itens do Pedido */}
+                  <div>
+                    <h4 className="font-semibold text-lg text-pink-700 mb-3">Itens do Pedido</h4>
+                    <div className="space-y-3">
+                      {pedidoSelecionado.itens.map((item, index) => (
+                        <div key={index} className="border rounded-lg p-4 border-pink-200 bg-pink-50">
+                          <div className="flex justify-between items-start">
+                            <div className="flex-1">
+                              <h5 className="font-medium text-gray-800">
+                                {item.recheio.nome} + {item.embalagem.nome}
+                              </h5>
+                              <p className="text-sm text-gray-600">Quantidade: {item.quantidade} unidades</p>
+                              <p className="text-sm text-gray-600">
+                                Preço unitário: R$ {(item.recheio.preco + item.embalagem.preco).toFixed(2)}
+                              </p>
+                              {item.observacoes && (
+                                <p className="text-sm text-gray-600 italic mt-1">Obs: {item.observacoes}</p>
+                              )}
+                            </div>
+                            <div className="text-right">
+                              <p className="font-bold text-pink-600 text-lg">R$ {item.subtotal.toFixed(2)}</p>
+                            </div>
+                          </div>
+                        </div>
+                      ))}
+                    </div>
                   </div>
-                )}
-
-                <div className="flex gap-2 mt-4">
-                  <Select value={pedido.status} onValueChange={(novoStatus) => atualizarStatus(pedido.id, novoStatus)}>
-                    <SelectTrigger className="w-48">
-                      <SelectValue />
-                    </SelectTrigger>
-                    <SelectContent>
-                      <SelectItem value="Pendente">Pendente</SelectItem>
-                      <SelectItem value="Confirmado">Confirmado</SelectItem>
-                      <SelectItem value="Em Produção">Em Produção</SelectItem>
-                      <SelectItem value="Pronto">Pronto</SelectItem>
-                      <SelectItem value="Entregue">Entregue</SelectItem>
-                      <SelectItem value="Cancelado">Cancelado</SelectItem>
-                    </SelectContent>
-                  </Select>
                 </div>
               </CardContent>
             </Card>
-          ))
-        )}
+          </div>
+
+          <div className="space-y-6">
+            {/* Resumo */}
+            <Card className="border-pink-200">
+              <CardHeader>
+                <CardTitle className="text-pink-700">Resumo do Pedido</CardTitle>
+              </CardHeader>
+              <CardContent className="space-y-4">
+                <div className="flex justify-between">
+                  <span>Total de Itens:</span>
+                  <span className="font-medium">{pedidoSelecionado.itens.length}</span>
+                </div>
+                <div className="flex justify-between">
+                  <span>Total de Unidades:</span>
+                  <span className="font-medium">
+                    {pedidoSelecionado.itens.reduce((total, item) => total + item.quantidade, 0)}
+                  </span>
+                </div>
+                <div className="border-t pt-4 border-pink-200">
+                  <div className="flex justify-between text-xl font-bold">
+                    <span>Total:</span>
+                    <span className="text-pink-600">R$ {pedidoSelecionado.total.toFixed(2)}</span>
+                  </div>
+                </div>
+              </CardContent>
+            </Card>
+
+            {/* Ações */}
+            <Card className="border-pink-200">
+              <CardHeader>
+                <CardTitle className="text-pink-700">Ações</CardTitle>
+              </CardHeader>
+              <CardContent className="space-y-3">
+                <div className="grid grid-cols-2 gap-2">
+                  <Button
+                    size="sm"
+                    variant={pedidoSelecionado.status === "pendente" ? "default" : "outline"}
+                    onClick={() => atualizarStatusPedido(pedidoSelecionado.id, "pendente")}
+                    className={
+                      pedidoSelecionado.status === "pendente"
+                        ? "bg-yellow-500 hover:bg-yellow-600"
+                        : "border-yellow-300 text-yellow-600 hover:bg-yellow-50"
+                    }
+                  >
+                    Pendente
+                  </Button>
+                  <Button
+                    size="sm"
+                    variant={pedidoSelecionado.status === "producao" ? "default" : "outline"}
+                    onClick={() => atualizarStatusPedido(pedidoSelecionado.id, "producao")}
+                    className={
+                      pedidoSelecionado.status === "producao"
+                        ? "bg-blue-500 hover:bg-blue-600"
+                        : "border-blue-300 text-blue-600 hover:bg-blue-50"
+                    }
+                  >
+                    Produção
+                  </Button>
+                  <Button
+                    size="sm"
+                    variant={pedidoSelecionado.status === "entregue" ? "default" : "outline"}
+                    onClick={() => atualizarStatusPedido(pedidoSelecionado.id, "entregue")}
+                    className={
+                      pedidoSelecionado.status === "entregue"
+                        ? "bg-gray-500 hover:bg-gray-600"
+                        : "border-gray-300 text-gray-600 hover:bg-gray-50"
+                    }
+                  >
+                    Entregue
+                  </Button>
+                </div>
+                <Button
+                  variant="outline"
+                  size="sm"
+                  onClick={() => excluirPedido(pedidoSelecionado.id)}
+                  className="w-full text-red-600 border-red-300 hover:bg-red-50"
+                >
+                  <Trash2 className="h-4 w-4 mr-2" />
+                  Excluir Pedido
+                </Button>
+              </CardContent>
+            </Card>
+          </div>
+        </div>
       </div>
+    )
+  }
+
+  return (
+    <div className="container mx-auto px-4 py-8">
+      <div className="mb-8 text-center">
+        <div className="flex items-center justify-center gap-3 mb-4">
+          <Settings className="h-8 w-8 text-pink-500" />
+          <h2 className="text-3xl font-bold text-gray-800">Painel Administrativo</h2>
+        </div>
+        <p className="text-gray-600">Gerencie todos os pedidos e acompanhe as vendas</p>
+      </div>
+
+      <div className="grid grid-cols-1 md:grid-cols-4 gap-4 mb-8">
+        <Card className="border-pink-200">
+          <CardContent className="p-6 text-center">
+            <div className="text-2xl font-bold text-orange-600">
+              {pedidos.filter((p) => p.status === "pendente").length}
+            </div>
+            <div className="text-sm text-gray-600">Pendentes</div>
+          </CardContent>
+        </Card>
+        <Card className="border-pink-200">
+          <CardContent className="p-6 text-center">
+            <div className="text-2xl font-bold text-blue-600">
+              {pedidos.filter((p) => p.status === "producao").length}
+            </div>
+            <div className="text-sm text-gray-600">Em Produção</div>
+          </CardContent>
+        </Card>
+        <Card className="border-pink-200">
+          <CardContent className="p-6 text-center">
+            <div className="text-2xl font-bold text-green-600">
+              {pedidos.filter((p) => p.status === "entregue").length}
+            </div>
+            <div className="text-sm text-gray-600">Entregues</div>
+          </CardContent>
+        </Card>
+        <Card className="border-pink-200">
+          <CardContent className="p-6 text-center">
+            <div className="text-2xl font-bold text-purple-600">
+              R$ {pedidos.reduce((total, pedido) => total + pedido.total, 0).toFixed(2)}
+            </div>
+            <div className="text-sm text-gray-600">Total Vendas</div>
+          </CardContent>
+        </Card>
+      </div>
+
+      <Card className="border-pink-200">
+        <CardHeader>
+          <CardTitle className="text-pink-700 flex items-center gap-2">
+            <Settings className="h-5 w-5" />
+            Gerenciar Pedidos
+          </CardTitle>
+        </CardHeader>
+        <CardContent>
+          <div className="space-y-4">
+            {pedidos.length === 0 ? (
+              <div className="text-center py-8">
+                <p className="text-gray-500">Nenhum pedido encontrado</p>
+              </div>
+            ) : (
+              pedidos.map((pedido) => (
+                <div key={pedido.id} className="border rounded p-4 border-pink-200">
+                  <div className="flex justify-between items-start mb-2">
+                    <div>
+                      <p className="font-semibold">Pedido #{pedido.id}</p>
+                      <p className="text-sm text-gray-600">Cliente: {pedido.usuario.nome}</p>
+                      <p className="text-sm text-gray-600">Telefone: {pedido.usuario.telefone}</p>
+                      <p className="text-sm text-gray-600">Endereço: {pedido.usuario.endereco}</p>
+                      <p className="text-sm text-gray-600">
+                        {new Date(pedido.data).toLocaleDateString("pt-BR")} às{" "}
+                        {new Date(pedido.data).toLocaleTimeString("pt-BR")}
+                      </p>
+                    </div>
+                    <div className="text-right">
+                      <p className="font-bold text-pink-600">R$ {pedido.total.toFixed(2)}</p>
+                      <p className="text-sm text-gray-600">
+                        {pedido.itens.reduce((total: number, item: any) => total + item.quantidade, 0)} itens
+                      </p>
+                    </div>
+                  </div>
+
+                  <details className="text-sm mb-3">
+                    <summary className="cursor-pointer text-pink-600 hover:underline">Ver itens</summary>
+                    <div className="mt-2 space-y-1">
+                      {pedido.itens.map((item: any, index: number) => (
+                        <div key={index} className="flex justify-between">
+                          <span>
+                            {item.quantidade}x {item.recheio.nome} + {item.embalagem.nome}
+                          </span>
+                          <span>R$ {item.subtotal.toFixed(2)}</span>
+                        </div>
+                      ))}
+                    </div>
+                  </details>
+
+                  <div className="flex gap-2">
+                    <Button
+                      size="sm"
+                      variant={pedido.status === "pendente" ? "default" : "outline"}
+                      onClick={() => atualizarStatusPedido(pedido.id, "pendente")}
+                      className={
+                        pedido.status === "pendente"
+                          ? "bg-yellow-500 hover:bg-yellow-600"
+                          : "border-yellow-300 text-yellow-600 hover:bg-yellow-50"
+                      }
+                    >
+                      Pendente
+                    </Button>
+                    <Button
+                      size="sm"
+                      variant={pedido.status === "producao" ? "default" : "outline"}
+                      onClick={() => atualizarStatusPedido(pedido.id, "producao")}
+                      className={
+                        pedido.status === "producao"
+                          ? "bg-blue-500 hover:bg-blue-600"
+                          : "border-blue-300 text-blue-600 hover:bg-blue-50"
+                      }
+                    >
+                      Produção
+                    </Button>
+                    <Button
+                      size="sm"
+                      variant={pedido.status === "entregue" ? "default" : "outline"}
+                      onClick={() => atualizarStatusPedido(pedido.id, "entregue")}
+                      className={
+                        pedido.status === "entregue"
+                          ? "bg-green-500 hover:bg-green-600"
+                          : "border-green-300 text-green-600 hover:bg-green-50"
+                      }
+                    >
+                      Entregue
+                    </Button>
+                  </div>
+                </div>
+              ))
+            )}
+          </div>
+        </CardContent>
+      </Card>
     </div>
   )
 }
