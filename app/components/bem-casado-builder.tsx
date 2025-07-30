@@ -236,12 +236,12 @@ export default function BemCasadoBuilder({ user }: BemCasadoBuilderProps) {
     carrinho.forEach((item, index) => {
       mensagem += `
 ${index + 1}. ${item.recheio.nome} + ${item.embalagem.nome}
- Quantidade: ${item.quantidade} unidades
- Subtotal: R$ ${item.subtotal.toFixed(2)}`
+Quantidade: ${item.quantidade} unidades
+Subtotal: R$ ${item.subtotal.toFixed(2)}`
 
       if (item.observacoes) {
         mensagem += `
- Obs: ${item.observacoes}`
+Obs: ${item.observacoes}`
       }
       mensagem += "\n"
     })
