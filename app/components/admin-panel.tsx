@@ -32,6 +32,7 @@ export default function AdminPanel() {
   const [filtroStatus, setFiltroStatus] = useState<string>("todos")
   const [busca, setBusca] = useState("")
   const [pedidoSelecionado, setPedidoSelecionado] = useState<Pedido | null>(null)
+  const [filtroAtivo, setFiltroAtivo] = useState<string | null>(null)
 
   useEffect(() => {
     const pedidosSalvos = localStorage.getItem("bem-casado-pedidos")
@@ -313,31 +314,67 @@ export default function AdminPanel() {
         <p className="text-gray-600">Gerencie todos os pedidos e acompanhe as vendas</p>
       </div>
 
-      <div className="grid grid-cols-1 md:grid-cols-4 gap-4 mb-8">
-        <Card className="border-pink-200">
+      <div className="grid grid-cols-1 md:grid-cols-5 gap-4 mb-8">
+        <Card
+          className={`border-pink-200 cursor-pointer transition-all hover:shadow-md ${
+            filtroAtivo === "pendente" ? "ring-2 ring-orange-500 bg-orange-50" : ""
+          }`}
+          onClick={() => setFiltroAtivo(filtroAtivo === "pendente" ? null : "pendente")}
+        >
           <CardContent className="p-6 text-center">
+            <Clock className="h-6 w-6 text-orange-500 mx-auto mb-2" />
             <div className="text-2xl font-bold text-orange-600">
               {pedidos.filter((p) => p.status === "pendente").length}
             </div>
             <div className="text-sm text-gray-600">Pendentes</div>
           </CardContent>
         </Card>
-        <Card className="border-pink-200">
+
+        <Card
+          className={`border-pink-200 cursor-pointer transition-all hover:shadow-md ${
+            filtroAtivo === "producao" ? "ring-2 ring-blue-500 bg-blue-50" : ""
+          }`}
+          onClick={() => setFiltroAtivo(filtroAtivo === "producao" ? null : "producao")}
+        >
           <CardContent className="p-6 text-center">
+            <Package className="h-6 w-6 text-blue-500 mx-auto mb-2" />
             <div className="text-2xl font-bold text-blue-600">
               {pedidos.filter((p) => p.status === "producao").length}
             </div>
             <div className="text-sm text-gray-600">Em Produção</div>
           </CardContent>
         </Card>
-        <Card className="border-pink-200">
+
+        <Card
+          className={`border-pink-200 cursor-pointer transition-all hover:shadow-md ${
+            filtroAtivo === "entregue" ? "ring-2 ring-green-500 bg-green-50" : ""
+          }`}
+          onClick={() => setFiltroAtivo(filtroAtivo === "entregue" ? null : "entregue")}
+        >
           <CardContent className="p-6 text-center">
+            <CheckCircle className="h-6 w-6 text-green-500 mx-auto mb-2" />
             <div className="text-2xl font-bold text-green-600">
               {pedidos.filter((p) => p.status === "entregue").length}
             </div>
             <div className="text-sm text-gray-600">Entregues</div>
           </CardContent>
         </Card>
+
+        <Card
+          className={`border-pink-200 cursor-pointer transition-all hover:shadow-md ${
+            filtroAtivo === "outros" ? "ring-2 ring-red-500 bg-red-50" : ""
+          }`}
+          onClick={() => setFiltroAtivo(filtroAtivo === "outros" ? null : "outros")}
+        >
+          <CardContent className="p-6 text-center">
+            <XCircle className="h-6 w-6 text-red-500 mx-auto mb-2" />
+            <div className="text-2xl font-bold text-red-600">
+              {pedidos.filter((p) => !["pendente", "producao", "entregue"].includes(p.status)).length}
+            </div>
+            <div className="text-sm text-gray-600">Outros</div>
+          </CardContent>
+        </Card>
+
         <Card className="border-pink-200">
           <CardContent className="p-6 text-center">
             <div className="text-2xl font-bold text-purple-600">
@@ -348,6 +385,41 @@ export default function AdminPanel() {
         </Card>
       </div>
 
+      {filtroAtivo && (
+        <div className="mb-4 flex items-center justify-between">
+          <div className="flex items-center gap-2">
+            <Badge variant="outline" className="text-sm">
+              Filtro ativo:{" "}
+              {filtroAtivo === "pendente"
+                ? "Pendentes"
+                : filtroAtivo === "producao"
+                  ? "Em Produção"
+                  : filtroAtivo === "entregue"
+                    ? "Entregues"
+                    : "Outros Status"}
+            </Badge>
+            <span className="text-sm text-gray-600">
+              (
+              {
+                (filtroAtivo === "outros"
+                  ? pedidos.filter((p) => !["pendente", "producao", "entregue"].includes(p.status))
+                  : pedidos.filter((p) => p.status === filtroAtivo)
+                ).length
+              }{" "}
+              pedidos)
+            </span>
+          </div>
+          <Button
+            variant="outline"
+            size="sm"
+            onClick={() => setFiltroAtivo(null)}
+            className="text-gray-600 hover:text-gray-800"
+          >
+            Limpar Filtro
+          </Button>
+        </div>
+      )}
+
       <Card className="border-pink-200">
         <CardHeader>
           <CardTitle className="text-pink-700 flex items-center gap-2">
@@ -357,7 +429,15 @@ export default function AdminPanel() {
         </CardHeader>
         <CardContent>
           <div className="space-y-4">
-            {pedidos.length === 0 ? (
+            {(filtroAtivo
+              ? pedidos.filter((pedido) => {
+                  if (filtroAtivo === "outros") {
+                    return !["pendente", "producao", "entregue"].includes(pedido.status)
+                  }
+                  return pedido.status === filtroAtivo
+                })
+              : pedidos
+            ).length === 0 ? (
               <div className="text-center py-8">
                 <p className="text-gray-500">Nenhum pedido encontrado</p>
               </div>
