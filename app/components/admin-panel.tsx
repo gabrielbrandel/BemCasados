@@ -1,15 +1,50 @@
 "use client"
 
 import { useState, useEffect } from "react"
-import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card"
 import { Button } from "@/components/ui/button"
+import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card"
 import { Badge } from "@/components/ui/badge"
-import { Package, Clock, CheckCircle, XCircle, Trash2, Settings } from "lucide-react"
+import { Dialog, DialogContent, DialogHeader, DialogTitle } from "@/components/ui/dialog"
+import {
+  AlertDialog,
+  AlertDialogAction,
+  AlertDialogCancel,
+  AlertDialogContent,
+  AlertDialogDescription,
+  AlertDialogFooter,
+  AlertDialogHeader,
+  AlertDialogTitle,
+  AlertDialogTrigger,
+} from "@/components/ui/alert-dialog"
+import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select"
+import { Input } from "@/components/ui/input"
+import { useToast } from "@/hooks/use-toast"
+import {
+  Package,
+  Clock,
+  CheckCircle,
+  Users,
+  Calendar,
+  Phone,
+  Mail,
+  MapPin,
+  ArrowRight,
+  Filter,
+  X,
+  Heart,
+  DollarSign,
+  Trash2,
+  Eye,
+  Search,
+  Grid3X3,
+  List,
+  Grid2X2,
+  LayoutGrid,
+} from "lucide-react"
 
 interface Pedido {
   id: string
   usuario: {
-    id: string
     nome: string
     email: string
     telefone: string
@@ -19,64 +54,121 @@ interface Pedido {
     recheio: { nome: string; preco: number }
     embalagem: { nome: string; preco: number }
     quantidade: number
-    observacoes: string
     subtotal: number
+    observacoes?: string
   }>
   total: number
   status: string
   data: string
 }
 
+type LayoutType = "grid-1" | "grid-2" | "grid-3" | "list"
+
 export default function AdminPanel() {
+  const { toast } = useToast()
   const [pedidos, setPedidos] = useState<Pedido[]>([])
-  const [filtroStatus, setFiltroStatus] = useState<string>("todos")
-  const [busca, setBusca] = useState("")
+  const [filtroStatus, setFiltroStatus] = useState<string | null>(null)
   const [pedidoSelecionado, setPedidoSelecionado] = useState<Pedido | null>(null)
-  const [filtroAtivo, setFiltroAtivo] = useState<string | null>(null)
+  const [modalAberto, setModalAberto] = useState(false)
+  const [busca, setBusca] = useState("")
+  const [layout, setLayout] = useState<LayoutType>("grid-3")
 
   useEffect(() => {
     const pedidosSalvos = localStorage.getItem("bem-casado-pedidos")
     if (pedidosSalvos) {
-      const todosPedidos = JSON.parse(pedidosSalvos)
-      setPedidos(todosPedidos.sort((a: Pedido, b: Pedido) => new Date(b.data).getTime() - new Date(a.data).getTime()))
+      setPedidos(JSON.parse(pedidosSalvos))
     }
   }, [])
 
-  const atualizarStatusPedido = (pedidoId: string, novoStatus: "pendente" | "producao" | "entregue") => {
+  const atualizarStatusPedido = (pedidoId: string, novoStatus: string) => {
     const pedidosAtualizados = pedidos.map((pedido) =>
       pedido.id === pedidoId ? { ...pedido, status: novoStatus } : pedido,
     )
     setPedidos(pedidosAtualizados)
     localStorage.setItem("bem-casado-pedidos", JSON.stringify(pedidosAtualizados))
+
+    // Atualizar pedido selecionado se for o mesmo
+    if (pedidoSelecionado?.id === pedidoId) {
+      setPedidoSelecionado({ ...pedidoSelecionado, status: novoStatus })
+    }
+
+    toast({
+      title: "✅ Status atualizado",
+      description: `Pedido #${pedidoId.slice(-6)} atualizado para ${novoStatus}`,
+    })
   }
 
   const excluirPedido = (pedidoId: string) => {
-    if (confirm("Tem certeza que deseja excluir este pedido?")) {
-      const pedidosAtualizados = pedidos.filter((pedido) => pedido.id !== pedidoId)
-      setPedidos(pedidosAtualizados)
-      localStorage.setItem("bem-casado-pedidos", JSON.stringify(pedidosAtualizados))
-    }
+    const pedidosAtualizados = pedidos.filter((pedido) => pedido.id !== pedidoId)
+    setPedidos(pedidosAtualizados)
+    localStorage.setItem("bem-casado-pedidos", JSON.stringify(pedidosAtualizados))
+    setModalAberto(false)
+
+    toast({
+      title: "🗑️ Pedido excluído",
+      description: `Pedido #${pedidoId.slice(-6)} foi excluído com sucesso`,
+      variant: "destructive",
+    })
   }
 
+  const evoluirFase = (pedido: Pedido) => {
+    let proximoStatus = ""
+    switch (pedido.status) {
+      case "Pendente":
+        proximoStatus = "Em Produção"
+        break
+      case "Em Produção":
+        proximoStatus = "Entregue"
+        break
+      case "Entregue":
+        proximoStatus = "Finalizado"
+        break
+      default:
+        return
+    }
+    atualizarStatusPedido(pedido.id, proximoStatus)
+  }
+
+  const contarPorStatus = (status: string) => {
+    return pedidos.filter((pedido) => pedido.status === status).length
+  }
+
+  const contarOutros = () => {
+    const statusPrincipais = ["Pendente", "Em Produção", "Entregue"]
+    return pedidos.filter((pedido) => !statusPrincipais.includes(pedido.status)).length
+  }
+
+  const calcularTotalVendas = () => {
+    return pedidos.filter((pedido) => pedido.status === "Entregue").reduce((total, pedido) => total + pedido.total, 0)
+  }
+
+  // Filtrar pedidos por status e busca
   const pedidosFiltrados = pedidos.filter((pedido) => {
-    const matchStatus = filtroStatus === "todos" || pedido.status.toLowerCase() === filtroStatus.toLowerCase()
-    const matchBusca =
-      busca === "" ||
-      pedido.usuario.nome.toLowerCase().includes(busca.toLowerCase()) ||
-      pedido.id.includes(busca) ||
-      pedido.usuario.email.toLowerCase().includes(busca.toLowerCase())
+    const matchStatus = filtroStatus
+      ? filtroStatus === "Outros"
+        ? !["Pendente", "Em Produção", "Entregue"].includes(pedido.status)
+        : pedido.status === filtroStatus
+      : true
+
+    const matchBusca = busca
+      ? pedido.usuario.nome.toLowerCase().includes(busca.toLowerCase()) ||
+        pedido.id.toLowerCase().includes(busca.toLowerCase()) ||
+        pedido.usuario.email.toLowerCase().includes(busca.toLowerCase()) ||
+        pedido.usuario.telefone.includes(busca)
+      : true
+
     return matchStatus && matchBusca
   })
 
   const getStatusColor = (status: string) => {
     switch (status) {
-      case "pendente":
+      case "Pendente":
         return "bg-yellow-100 text-yellow-800 border-yellow-200"
-      case "producao":
+      case "Em Produção":
         return "bg-blue-100 text-blue-800 border-blue-200"
-      case "entregue":
-        return "bg-gray-100 text-gray-800 border-gray-200"
-      case "cancelado":
+      case "Entregue":
+        return "bg-green-100 text-green-800 border-green-200"
+      case "Cancelado":
         return "bg-red-100 text-red-800 border-red-200"
       default:
         return "bg-gray-100 text-gray-800 border-gray-200"
@@ -85,442 +177,504 @@ export default function AdminPanel() {
 
   const getStatusIcon = (status: string) => {
     switch (status) {
-      case "pendente":
+      case "Pendente":
         return <Clock className="h-4 w-4" />
-      case "producao":
+      case "Em Produção":
         return <Package className="h-4 w-4" />
-      case "entregue":
+      case "Entregue":
         return <CheckCircle className="h-4 w-4" />
-      case "cancelado":
-        return <XCircle className="h-4 w-4" />
       default:
         return <Clock className="h-4 w-4" />
     }
   }
 
-  const exportarDados = () => {
-    const dadosExport = pedidos.map((pedido) => ({
-      id: pedido.id,
-      cliente: pedido.usuario.nome,
-      email: pedido.usuario.email,
-      telefone: pedido.usuario.telefone,
-      total: pedido.total,
-      status: pedido.status,
-      data: new Date(pedido.data).toLocaleDateString("pt-BR"),
-      itens: pedido.itens.length,
-      unidades: pedido.itens.reduce((total, item) => total + item.quantidade, 0),
-    }))
-
-    const csv = [
-      "ID,Cliente,Email,Telefone,Total,Status,Data,Itens,Unidades",
-      ...dadosExport.map((row) => Object.values(row).join(",")),
-    ].join("\n")
-
-    const blob = new Blob([csv], { type: "text/csv" })
-    const url = window.URL.createObjectURL(blob)
-    const a = document.createElement("a")
-    a.href = url
-    a.download = `pedidos-bem-casados-${new Date().toISOString().split("T")[0]}.csv`
-    a.click()
+  const formatarData = (dataISO: string) => {
+    return new Date(dataISO).toLocaleDateString("pt-BR", {
+      day: "2-digit",
+      month: "2-digit",
+      year: "numeric",
+      hour: "2-digit",
+      minute: "2-digit",
+    })
   }
 
-  if (pedidoSelecionado) {
+  const abrirModal = (pedido: Pedido) => {
+    setPedidoSelecionado(pedido)
+    setModalAberto(true)
+  }
+
+  const getLayoutClass = () => {
+    switch (layout) {
+      case "grid-1":
+        return "grid-cols-1"
+      case "grid-2":
+        return "grid-cols-1 md:grid-cols-2"
+      case "grid-3":
+        return "grid-cols-1 md:grid-cols-2 lg:grid-cols-3"
+      case "list":
+        return "grid-cols-1"
+      default:
+        return "grid-cols-1 md:grid-cols-2 lg:grid-cols-3"
+    }
+  }
+
+  const renderPedidoCard = (pedido: Pedido) => {
+    if (layout === "list") {
+      return (
+        <Card
+          key={pedido.id}
+          className="cursor-pointer hover:shadow-lg transition-all hover:scale-[1.02] border-pink-200"
+          onClick={() => abrirModal(pedido)}
+        >
+          <CardContent className="p-4">
+            <div className="flex justify-between items-center">
+              <div className="flex items-center gap-4">
+                <div>
+                  <h3 className="font-semibold text-gray-800">{pedido.usuario.nome}</h3>
+                  <p className="text-sm text-gray-600">#{pedido.id.slice(-6)}</p>
+                </div>
+                <div className="text-sm text-gray-600">
+                  <div className="flex items-center gap-2">
+                    <Calendar className="h-4 w-4" />
+                    <span>{formatarData(pedido.data)}</span>
+                  </div>
+                </div>
+                <div className="text-sm text-gray-600">
+                  <div className="flex items-center gap-2">
+                    <Package className="h-4 w-4" />
+                    <span>{pedido.itens.reduce((total, item) => total + item.quantidade, 0)} unidades</span>
+                  </div>
+                </div>
+              </div>
+              <div className="flex items-center gap-4">
+                <Badge className={`text-xs ${getStatusColor(pedido.status)}`}>
+                  <div className="flex items-center gap-1">
+                    {getStatusIcon(pedido.status)}
+                    {pedido.status}
+                  </div>
+                </Badge>
+                <div className="text-right">
+                  <span className="font-bold text-pink-600 text-lg">R$ {pedido.total.toFixed(2)}</span>
+                </div>
+              </div>
+            </div>
+          </CardContent>
+        </Card>
+      )
+    }
+
     return (
-      <div className="container mx-auto px-4 py-8">
-        <div className="mb-6">
+      <Card
+        key={pedido.id}
+        className="cursor-pointer hover:shadow-lg transition-all hover:scale-105 border-pink-200"
+        onClick={() => abrirModal(pedido)}
+      >
+        <CardContent className="p-4">
+          <div className="flex justify-between items-start mb-3">
+            <div>
+              <h3 className="font-semibold text-gray-800">{pedido.usuario.nome}</h3>
+              <p className="text-sm text-gray-600">#{pedido.id.slice(-6)}</p>
+            </div>
+            <Badge className={`text-xs ${getStatusColor(pedido.status)}`}>
+              <div className="flex items-center gap-1">
+                {getStatusIcon(pedido.status)}
+                {pedido.status}
+              </div>
+            </Badge>
+          </div>
+
+          <div className="space-y-2 text-sm text-gray-600">
+            <div className="flex items-center gap-2">
+              <Calendar className="h-4 w-4" />
+              <span>{formatarData(pedido.data)}</span>
+            </div>
+            <div className="flex items-center gap-2">
+              <Package className="h-4 w-4" />
+              <span>{pedido.itens.reduce((total, item) => total + item.quantidade, 0)} unidades</span>
+            </div>
+            <div className="flex justify-between items-center pt-2 border-t">
+              <span className="font-semibold text-gray-800">Total:</span>
+              <span className="font-bold text-pink-600">R$ {pedido.total.toFixed(2)}</span>
+            </div>
+          </div>
+
           <Button
             variant="outline"
-            onClick={() => setPedidoSelecionado(null)}
-            className="mb-4 border-pink-300 text-pink-600 hover:bg-pink-50"
+            size="sm"
+            className="w-full mt-3 border-pink-300 text-pink-600 hover:bg-pink-50 bg-transparent"
           >
-            ← Voltar aos Pedidos
+            <Eye className="h-4 w-4 mr-2" />
+            Ver Detalhes
           </Button>
-          <h2 className="text-3xl font-bold text-gray-800">Detalhes do Pedido #{pedidoSelecionado.id.slice(-6)}</h2>
+        </CardContent>
+      </Card>
+    )
+  }
+
+  return (
+    <div className="min-h-screen bg-gradient-to-br from-pink-50 to-rose-100">
+      <div className="container mx-auto px-4 py-6">
+        <div className="mb-6">
+          <h1 className="text-2xl font-bold text-gray-800 mb-2 flex items-center gap-2">
+            <Heart className="h-6 w-6 text-pink-500" />
+            Painel Administrativo
+          </h1>
+          <p className="text-gray-600">Gerencie todos os pedidos de bem casados</p>
         </div>
 
-        <div className="grid lg:grid-cols-3 gap-8">
-          <div className="lg:col-span-2">
-            <Card className="border-pink-200">
-              <CardHeader>
-                <div className="flex items-center justify-between">
-                  <div>
-                    <CardTitle className="text-pink-700">Pedido #{pedidoSelecionado.id.slice(-6)}</CardTitle>
-                    <p className="text-sm text-gray-600 mt-1">
-                      {new Date(pedidoSelecionado.data).toLocaleDateString("pt-BR")} às{" "}
-                      {new Date(pedidoSelecionado.data).toLocaleTimeString("pt-BR")}
-                    </p>
-                  </div>
-                  <Badge className={`${getStatusColor(pedidoSelecionado.status)} border`}>
+        {/* Cards de Estatísticas Clicáveis */}
+        <div className="grid grid-cols-2 md:grid-cols-5 gap-4 mb-6">
+          <Card
+            className={`cursor-pointer transition-all hover:shadow-md ${
+              filtroStatus === "Pendente" ? "ring-2 ring-yellow-500 bg-yellow-50" : "hover:scale-105"
+            }`}
+            onClick={() => setFiltroStatus(filtroStatus === "Pendente" ? null : "Pendente")}
+          >
+            <CardContent className="p-4 text-center">
+              <Clock className="h-8 w-8 text-yellow-500 mx-auto mb-2" />
+              <div className="text-2xl font-bold text-yellow-600">{contarPorStatus("Pendente")}</div>
+              <div className="text-sm text-gray-600">Pendentes</div>
+            </CardContent>
+          </Card>
+
+          <Card
+            className={`cursor-pointer transition-all hover:shadow-md ${
+              filtroStatus === "Em Produção" ? "ring-2 ring-blue-500 bg-blue-50" : "hover:scale-105"
+            }`}
+            onClick={() => setFiltroStatus(filtroStatus === "Em Produção" ? null : "Em Produção")}
+          >
+            <CardContent className="p-4 text-center">
+              <Package className="h-8 w-8 text-blue-500 mx-auto mb-2" />
+              <div className="text-2xl font-bold text-blue-600">{contarPorStatus("Em Produção")}</div>
+              <div className="text-sm text-gray-600">Em Produção</div>
+            </CardContent>
+          </Card>
+
+          <Card
+            className={`cursor-pointer transition-all hover:shadow-md ${
+              filtroStatus === "Entregue" ? "ring-2 ring-green-500 bg-green-50" : "hover:scale-105"
+            }`}
+            onClick={() => setFiltroStatus(filtroStatus === "Entregue" ? null : "Entregue")}
+          >
+            <CardContent className="p-4 text-center">
+              <CheckCircle className="h-8 w-8 text-green-500 mx-auto mb-2" />
+              <div className="text-2xl font-bold text-green-600">{contarPorStatus("Entregue")}</div>
+              <div className="text-sm text-gray-600">Entregues</div>
+            </CardContent>
+          </Card>
+
+          <Card
+            className={`cursor-pointer transition-all hover:shadow-md ${
+              filtroStatus === "Outros" ? "ring-2 ring-gray-500 bg-gray-50" : "hover:scale-105"
+            }`}
+            onClick={() => setFiltroStatus(filtroStatus === "Outros" ? null : "Outros")}
+          >
+            <CardContent className="p-4 text-center">
+              <Users className="h-8 w-8 text-gray-500 mx-auto mb-2" />
+              <div className="text-2xl font-bold text-gray-600">{contarOutros()}</div>
+              <div className="text-sm text-gray-600">Outros</div>
+            </CardContent>
+          </Card>
+
+          <Card className="bg-gradient-to-br from-pink-100 to-rose-100 border-pink-200">
+            <CardContent className="p-4 text-center">
+              <DollarSign className="h-8 w-8 text-pink-500 mx-auto mb-2" />
+              <div className="text-2xl font-bold text-pink-600">R$ {calcularTotalVendas().toFixed(2)}</div>
+              <div className="text-sm text-gray-600">Total Vendas</div>
+            </CardContent>
+          </Card>
+        </div>
+
+        {/* Barra de Busca e Controles de Layout */}
+        <div className="flex flex-col md:flex-row gap-4 mb-6">
+          <div className="flex-1 relative">
+            <Search className="absolute left-3 top-1/2 transform -translate-y-1/2 text-gray-400 h-4 w-4" />
+            <Input
+              placeholder="Buscar por nome, email, telefone ou ID do pedido..."
+              value={busca}
+              onChange={(e) => setBusca(e.target.value)}
+              className="pl-10 border-pink-200 focus:border-pink-400"
+            />
+          </div>
+          <div className="flex gap-2">
+            <Button
+              variant={layout === "list" ? "default" : "outline"}
+              size="sm"
+              onClick={() => setLayout("list")}
+              className={layout === "list" ? "bg-pink-500 hover:bg-pink-600" : "border-pink-300 text-pink-600"}
+            >
+              <List className="h-4 w-4" />
+            </Button>
+            <Button
+              variant={layout === "grid-1" ? "default" : "outline"}
+              size="sm"
+              onClick={() => setLayout("grid-1")}
+              className={layout === "grid-1" ? "bg-pink-500 hover:bg-pink-600" : "border-pink-300 text-pink-600"}
+            >
+              <LayoutGrid className="h-4 w-4" />
+            </Button>
+            <Button
+              variant={layout === "grid-2" ? "default" : "outline"}
+              size="sm"
+              onClick={() => setLayout("grid-2")}
+              className={layout === "grid-2" ? "bg-pink-500 hover:bg-pink-600" : "border-pink-300 text-pink-600"}
+            >
+              <Grid2X2 className="h-4 w-4" />
+            </Button>
+            <Button
+              variant={layout === "grid-3" ? "default" : "outline"}
+              size="sm"
+              onClick={() => setLayout("grid-3")}
+              className={layout === "grid-3" ? "bg-pink-500 hover:bg-pink-600" : "border-pink-300 text-pink-600"}
+            >
+              <Grid3X3 className="h-4 w-4" />
+            </Button>
+          </div>
+        </div>
+
+        {/* Indicadores de Filtros Ativos */}
+        <div className="flex flex-wrap gap-2 mb-4">
+          {filtroStatus && (
+            <div className="flex items-center gap-2 bg-white rounded-full px-3 py-1 border border-pink-200">
+              <Filter className="h-4 w-4 text-gray-500" />
+              <span className="text-sm text-gray-600">Status: {filtroStatus}</span>
+              <Button variant="ghost" size="sm" onClick={() => setFiltroStatus(null)} className="h-4 w-4 p-0">
+                <X className="h-3 w-3" />
+              </Button>
+            </div>
+          )}
+          {busca && (
+            <div className="flex items-center gap-2 bg-white rounded-full px-3 py-1 border border-pink-200">
+              <Search className="h-4 w-4 text-gray-500" />
+              <span className="text-sm text-gray-600">Busca: "{busca}"</span>
+              <Button variant="ghost" size="sm" onClick={() => setBusca("")} className="h-4 w-4 p-0">
+                <X className="h-3 w-3" />
+              </Button>
+            </div>
+          )}
+          {(filtroStatus || busca) && (
+            <Button
+              variant="ghost"
+              size="sm"
+              onClick={() => {
+                setFiltroStatus(null)
+                setBusca("")
+              }}
+              className="text-gray-500 hover:text-gray-700"
+            >
+              Limpar todos os filtros
+            </Button>
+          )}
+        </div>
+
+        {/* Contador de Resultados */}
+        <div className="mb-4">
+          <p className="text-sm text-gray-600">
+            Mostrando {pedidosFiltrados.length} de {pedidos.length} pedidos
+          </p>
+        </div>
+
+        {/* Lista de Pedidos */}
+        <div className={`grid ${getLayoutClass()} gap-4`}>
+          {pedidosFiltrados.length === 0 ? (
+            <div className="col-span-full text-center py-12 text-gray-500">
+              <Package className="h-12 w-12 mx-auto mb-4 opacity-50" />
+              <p>Nenhum pedido encontrado</p>
+              {(filtroStatus || busca) && (
+                <Button
+                  variant="outline"
+                  onClick={() => {
+                    setFiltroStatus(null)
+                    setBusca("")
+                  }}
+                  className="mt-4 border-pink-300 text-pink-600"
+                >
+                  Limpar filtros
+                </Button>
+              )}
+            </div>
+          ) : (
+            pedidosFiltrados.map((pedido) => renderPedidoCard(pedido))
+          )}
+        </div>
+
+        {/* Modal de Detalhes do Pedido */}
+        <Dialog open={modalAberto} onOpenChange={setModalAberto}>
+          <DialogContent className="max-w-4xl h-[90vh] p-0 overflow-hidden flex flex-col">
+            {/* Header fixo */}
+            <DialogHeader className="px-6 py-4 border-b bg-gradient-to-r from-pink-50 to-rose-50 flex-shrink-0">
+              <DialogTitle className="text-xl flex items-center gap-2 text-pink-700">
+                <Heart className="h-6 w-6 text-pink-500" />
+                Pedido #{pedidoSelecionado?.id.slice(-6)} - {pedidoSelecionado?.usuario.nome}
+              </DialogTitle>
+              {pedidoSelecionado && (
+                <div className="flex items-center gap-2 mt-2">
+                  <Badge className={`${getStatusColor(pedidoSelecionado.status)} text-sm`}>
                     <div className="flex items-center gap-1">
                       {getStatusIcon(pedidoSelecionado.status)}
                       {pedidoSelecionado.status}
                     </div>
                   </Badge>
+                  <span className="text-sm text-gray-600">{formatarData(pedidoSelecionado.data)}</span>
                 </div>
-              </CardHeader>
-              <CardContent>
-                <div className="space-y-6">
-                  {/* Informações do Cliente */}
-                  <div>
-                    <h4 className="font-semibold text-lg text-pink-700 mb-3">Informações do Cliente</h4>
-                    <div className="bg-pink-50 rounded-lg p-4 border border-pink-200">
-                      <div className="grid md:grid-cols-2 gap-4">
-                        <div>
-                          <p className="text-sm text-gray-600">Nome</p>
-                          <p className="font-medium">{pedidoSelecionado.usuario.nome}</p>
+              )}
+            </DialogHeader>
+
+            {/* Conteúdo com scroll */}
+            <div className="flex-1 overflow-y-auto px-6 py-4">
+              {pedidoSelecionado && (
+                <div className="space-y-4">
+                  {/* Informações do Cliente - Compacto */}
+                  <Card className="border-pink-200">
+                    <CardHeader className="pb-2">
+                      <CardTitle className="text-base flex items-center gap-2 text-pink-700">
+                        <Users className="h-4 w-4" />
+                        Cliente
+                      </CardTitle>
+                    </CardHeader>
+                    <CardContent className="pt-0">
+                      <div className="grid grid-cols-2 gap-3 text-sm">
+                        <div className="flex items-center gap-2">
+                          <Users className="h-4 w-4 text-pink-500" />
+                          <span>{pedidoSelecionado.usuario.nome}</span>
                         </div>
-                        <div>
-                          <p className="text-sm text-gray-600">Email</p>
-                          <p className="font-medium">{pedidoSelecionado.usuario.email}</p>
+                        <div className="flex items-center gap-2">
+                          <Phone className="h-4 w-4 text-pink-500" />
+                          <span>{pedidoSelecionado.usuario.telefone}</span>
                         </div>
-                        <div>
-                          <p className="text-sm text-gray-600">Telefone</p>
-                          <p className="font-medium">{pedidoSelecionado.usuario.telefone}</p>
+                        <div className="flex items-center gap-2">
+                          <Mail className="h-4 w-4 text-pink-500" />
+                          <span className="truncate">{pedidoSelecionado.usuario.email}</span>
                         </div>
-                        <div>
-                          <p className="text-sm text-gray-600">Endereço</p>
-                          <p className="font-medium">{pedidoSelecionado.usuario.endereco}</p>
+                        <div className="flex items-center gap-2">
+                          <MapPin className="h-4 w-4 text-pink-500" />
+                          <span className="truncate">{pedidoSelecionado.usuario.endereco}</span>
                         </div>
                       </div>
-                    </div>
-                  </div>
+                    </CardContent>
+                  </Card>
 
-                  {/* Itens do Pedido */}
-                  <div>
-                    <h4 className="font-semibold text-lg text-pink-700 mb-3">Itens do Pedido</h4>
-                    <div className="space-y-3">
-                      {pedidoSelecionado.itens.map((item, index) => (
-                        <div key={index} className="border rounded-lg p-4 border-pink-200 bg-pink-50">
-                          <div className="flex justify-between items-start">
+                  {/* Itens do Pedido - Compacto */}
+                  <Card className="border-pink-200">
+                    <CardHeader className="pb-2">
+                      <CardTitle className="text-base flex items-center gap-2 text-pink-700">
+                        <Package className="h-4 w-4" />
+                        Itens ({pedidoSelecionado.itens.length})
+                      </CardTitle>
+                    </CardHeader>
+                    <CardContent className="pt-0">
+                      <div className="space-y-2 max-h-60 overflow-y-auto">
+                        {pedidoSelecionado.itens.map((item, index) => (
+                          <div key={index} className="flex justify-between items-center p-2 bg-pink-50 rounded border">
                             <div className="flex-1">
-                              <h5 className="font-medium text-gray-800">
+                              <p className="font-medium text-sm text-gray-800">
                                 {item.recheio.nome} + {item.embalagem.nome}
-                              </h5>
-                              <p className="text-sm text-gray-600">Quantidade: {item.quantidade} unidades</p>
-                              <p className="text-sm text-gray-600">
-                                Preço unitário: R$ {(item.recheio.preco + item.embalagem.preco).toFixed(2)}
                               </p>
-                              {item.observacoes && (
-                                <p className="text-sm text-gray-600 italic mt-1">Obs: {item.observacoes}</p>
-                              )}
+                              <p className="text-xs text-gray-600">
+                                {item.quantidade}x R$ {(item.recheio.preco + item.embalagem.preco).toFixed(2)}
+                                {item.observacoes && ` • ${item.observacoes}`}
+                              </p>
                             </div>
                             <div className="text-right">
-                              <p className="font-bold text-pink-600 text-lg">R$ {item.subtotal.toFixed(2)}</p>
+                              <p className="font-bold text-pink-600">R$ {item.subtotal.toFixed(2)}</p>
                             </div>
                           </div>
-                        </div>
-                      ))}
-                    </div>
-                  </div>
+                        ))}
+                      </div>
+                    </CardContent>
+                  </Card>
                 </div>
-              </CardContent>
-            </Card>
-          </div>
+              )}
+            </div>
 
-          <div className="space-y-6">
-            {/* Resumo */}
-            <Card className="border-pink-200">
-              <CardHeader>
-                <CardTitle className="text-pink-700">Resumo do Pedido</CardTitle>
-              </CardHeader>
-              <CardContent className="space-y-4">
-                <div className="flex justify-between">
-                  <span>Total de Itens:</span>
-                  <span className="font-medium">{pedidoSelecionado.itens.length}</span>
+            {/* Total do Pedido - Sempre Visível */}
+            <div className="flex-shrink-0 bg-gradient-to-r from-pink-100 to-rose-100 border-t-2 border-pink-300 p-4">
+              <div className="flex justify-between items-center">
+                <div>
+                  <p className="text-lg font-bold text-gray-800">Total do Pedido</p>
+                  <p className="text-sm text-gray-600">
+                    {pedidoSelecionado?.itens.reduce((total, item) => total + item.quantidade, 0)} unidades
+                  </p>
                 </div>
-                <div className="flex justify-between">
-                  <span>Total de Unidades:</span>
-                  <span className="font-medium">
-                    {pedidoSelecionado.itens.reduce((total, item) => total + item.quantidade, 0)}
-                  </span>
+                <div className="text-right">
+                  <p className="text-3xl font-bold text-pink-600">R$ {pedidoSelecionado?.total.toFixed(2)}</p>
                 </div>
-                <div className="border-t pt-4 border-pink-200">
-                  <div className="flex justify-between text-xl font-bold">
-                    <span>Total:</span>
-                    <span className="text-pink-600">R$ {pedidoSelecionado.total.toFixed(2)}</span>
-                  </div>
-                </div>
-              </CardContent>
-            </Card>
-
-            {/* Ações */}
-            <Card className="border-pink-200">
-              <CardHeader>
-                <CardTitle className="text-pink-700">Ações</CardTitle>
-              </CardHeader>
-              <CardContent className="space-y-3">
-                <div className="grid grid-cols-2 gap-2">
-                  <Button
-                    size="sm"
-                    variant={pedidoSelecionado.status === "pendente" ? "default" : "outline"}
-                    onClick={() => atualizarStatusPedido(pedidoSelecionado.id, "pendente")}
-                    className={
-                      pedidoSelecionado.status === "pendente"
-                        ? "bg-yellow-500 hover:bg-yellow-600"
-                        : "border-yellow-300 text-yellow-600 hover:bg-yellow-50"
-                    }
-                  >
-                    Pendente
-                  </Button>
-                  <Button
-                    size="sm"
-                    variant={pedidoSelecionado.status === "producao" ? "default" : "outline"}
-                    onClick={() => atualizarStatusPedido(pedidoSelecionado.id, "producao")}
-                    className={
-                      pedidoSelecionado.status === "producao"
-                        ? "bg-blue-500 hover:bg-blue-600"
-                        : "border-blue-300 text-blue-600 hover:bg-blue-50"
-                    }
-                  >
-                    Produção
-                  </Button>
-                  <Button
-                    size="sm"
-                    variant={pedidoSelecionado.status === "entregue" ? "default" : "outline"}
-                    onClick={() => atualizarStatusPedido(pedidoSelecionado.id, "entregue")}
-                    className={
-                      pedidoSelecionado.status === "entregue"
-                        ? "bg-gray-500 hover:bg-gray-600"
-                        : "border-gray-300 text-gray-600 hover:bg-gray-50"
-                    }
-                  >
-                    Entregue
-                  </Button>
-                </div>
-                <Button
-                  variant="outline"
-                  size="sm"
-                  onClick={() => excluirPedido(pedidoSelecionado.id)}
-                  className="w-full text-red-600 border-red-300 hover:bg-red-50"
-                >
-                  <Trash2 className="h-4 w-4 mr-2" />
-                  Excluir Pedido
-                </Button>
-              </CardContent>
-            </Card>
-          </div>
-        </div>
-      </div>
-    )
-  }
-
-  return (
-    <div className="container mx-auto px-4 py-8">
-      <div className="mb-8 text-center">
-        <div className="flex items-center justify-center gap-3 mb-4">
-          <Settings className="h-8 w-8 text-pink-500" />
-          <h2 className="text-3xl font-bold text-gray-800">Painel Administrativo</h2>
-        </div>
-        <p className="text-gray-600">Gerencie todos os pedidos e acompanhe as vendas</p>
-      </div>
-
-      <div className="grid grid-cols-1 md:grid-cols-5 gap-4 mb-8">
-        <Card
-          className={`border-pink-200 cursor-pointer transition-all hover:shadow-md ${
-            filtroAtivo === "pendente" ? "ring-2 ring-orange-500 bg-orange-50" : ""
-          }`}
-          onClick={() => setFiltroAtivo(filtroAtivo === "pendente" ? null : "pendente")}
-        >
-          <CardContent className="p-6 text-center">
-            <Clock className="h-6 w-6 text-orange-500 mx-auto mb-2" />
-            <div className="text-2xl font-bold text-orange-600">
-              {pedidos.filter((p) => p.status === "pendente").length}
-            </div>
-            <div className="text-sm text-gray-600">Pendentes</div>
-          </CardContent>
-        </Card>
-
-        <Card
-          className={`border-pink-200 cursor-pointer transition-all hover:shadow-md ${
-            filtroAtivo === "producao" ? "ring-2 ring-blue-500 bg-blue-50" : ""
-          }`}
-          onClick={() => setFiltroAtivo(filtroAtivo === "producao" ? null : "producao")}
-        >
-          <CardContent className="p-6 text-center">
-            <Package className="h-6 w-6 text-blue-500 mx-auto mb-2" />
-            <div className="text-2xl font-bold text-blue-600">
-              {pedidos.filter((p) => p.status === "producao").length}
-            </div>
-            <div className="text-sm text-gray-600">Em Produção</div>
-          </CardContent>
-        </Card>
-
-        <Card
-          className={`border-pink-200 cursor-pointer transition-all hover:shadow-md ${
-            filtroAtivo === "entregue" ? "ring-2 ring-green-500 bg-green-50" : ""
-          }`}
-          onClick={() => setFiltroAtivo(filtroAtivo === "entregue" ? null : "entregue")}
-        >
-          <CardContent className="p-6 text-center">
-            <CheckCircle className="h-6 w-6 text-green-500 mx-auto mb-2" />
-            <div className="text-2xl font-bold text-green-600">
-              {pedidos.filter((p) => p.status === "entregue").length}
-            </div>
-            <div className="text-sm text-gray-600">Entregues</div>
-          </CardContent>
-        </Card>
-
-        <Card
-          className={`border-pink-200 cursor-pointer transition-all hover:shadow-md ${
-            filtroAtivo === "outros" ? "ring-2 ring-red-500 bg-red-50" : ""
-          }`}
-          onClick={() => setFiltroAtivo(filtroAtivo === "outros" ? null : "outros")}
-        >
-          <CardContent className="p-6 text-center">
-            <XCircle className="h-6 w-6 text-red-500 mx-auto mb-2" />
-            <div className="text-2xl font-bold text-red-600">
-              {pedidos.filter((p) => !["pendente", "producao", "entregue"].includes(p.status)).length}
-            </div>
-            <div className="text-sm text-gray-600">Outros</div>
-          </CardContent>
-        </Card>
-
-        <Card className="border-pink-200">
-          <CardContent className="p-6 text-center">
-            <div className="text-2xl font-bold text-purple-600">
-              R$ {pedidos.reduce((total, pedido) => total + pedido.total, 0).toFixed(2)}
-            </div>
-            <div className="text-sm text-gray-600">Total Vendas</div>
-          </CardContent>
-        </Card>
-      </div>
-
-      {filtroAtivo && (
-        <div className="mb-4 flex items-center justify-between">
-          <div className="flex items-center gap-2">
-            <Badge variant="outline" className="text-sm">
-              Filtro ativo:{" "}
-              {filtroAtivo === "pendente"
-                ? "Pendentes"
-                : filtroAtivo === "producao"
-                  ? "Em Produção"
-                  : filtroAtivo === "entregue"
-                    ? "Entregues"
-                    : "Outros Status"}
-            </Badge>
-            <span className="text-sm text-gray-600">
-              (
-              {
-                (filtroAtivo === "outros"
-                  ? pedidos.filter((p) => !["pendente", "producao", "entregue"].includes(p.status))
-                  : pedidos.filter((p) => p.status === filtroAtivo)
-                ).length
-              }{" "}
-              pedidos)
-            </span>
-          </div>
-          <Button
-            variant="outline"
-            size="sm"
-            onClick={() => setFiltroAtivo(null)}
-            className="text-gray-600 hover:text-gray-800"
-          >
-            Limpar Filtro
-          </Button>
-        </div>
-      )}
-
-      <Card className="border-pink-200">
-        <CardHeader>
-          <CardTitle className="text-pink-700 flex items-center gap-2">
-            <Settings className="h-5 w-5" />
-            Gerenciar Pedidos
-          </CardTitle>
-        </CardHeader>
-        <CardContent>
-          <div className="space-y-4">
-            {(filtroAtivo
-              ? pedidos.filter((pedido) => {
-                  if (filtroAtivo === "outros") {
-                    return !["pendente", "producao", "entregue"].includes(pedido.status)
-                  }
-                  return pedido.status === filtroAtivo
-                })
-              : pedidos
-            ).length === 0 ? (
-              <div className="text-center py-8">
-                <p className="text-gray-500">Nenhum pedido encontrado</p>
               </div>
-            ) : (
-              pedidos.map((pedido) => (
-                <div key={pedido.id} className="border rounded p-4 border-pink-200">
-                  <div className="flex justify-between items-start mb-2">
-                    <div>
-                      <p className="font-semibold">Pedido #{pedido.id}</p>
-                      <p className="text-sm text-gray-600">Cliente: {pedido.usuario.nome}</p>
-                      <p className="text-sm text-gray-600">Telefone: {pedido.usuario.telefone}</p>
-                      <p className="text-sm text-gray-600">Endereço: {pedido.usuario.endereco}</p>
-                      <p className="text-sm text-gray-600">
-                        {new Date(pedido.data).toLocaleDateString("pt-BR")} às{" "}
-                        {new Date(pedido.data).toLocaleTimeString("pt-BR")}
-                      </p>
-                    </div>
-                    <div className="text-right">
-                      <p className="font-bold text-pink-600">R$ {pedido.total.toFixed(2)}</p>
-                      <p className="text-sm text-gray-600">
-                        {pedido.itens.reduce((total: number, item: any) => total + item.quantidade, 0)} itens
-                      </p>
-                    </div>
-                  </div>
+            </div>
 
-                  <details className="text-sm mb-3">
-                    <summary className="cursor-pointer text-pink-600 hover:underline">Ver itens</summary>
-                    <div className="mt-2 space-y-1">
-                      {pedido.itens.map((item: any, index: number) => (
-                        <div key={index} className="flex justify-between">
-                          <span>
-                            {item.quantidade}x {item.recheio.nome} + {item.embalagem.nome}
-                          </span>
-                          <span>R$ {item.subtotal.toFixed(2)}</span>
-                        </div>
-                      ))}
-                    </div>
-                  </details>
+            {/* Footer fixo com ações */}
+            <div className="px-6 py-3 border-t bg-gray-50 flex-shrink-0">
+              <div className="flex flex-wrap gap-2 justify-between items-center">
+                <div className="flex gap-2">
+                  {pedidoSelecionado && pedidoSelecionado.status !== "Finalizado" && (
+                    <Button
+                      onClick={() => evoluirFase(pedidoSelecionado)}
+                      size="sm"
+                      className="bg-blue-500 hover:bg-blue-600 text-white"
+                    >
+                      <ArrowRight className="h-4 w-4 mr-1" />
+                      {pedidoSelecionado.status === "Pendente"
+                        ? "Produção"
+                        : pedidoSelecionado.status === "Em Produção"
+                          ? "Entregue"
+                          : "Finalizar"}
+                    </Button>
+                  )}
 
-                  <div className="flex gap-2">
-                    <Button
-                      size="sm"
-                      variant={pedido.status === "pendente" ? "default" : "outline"}
-                      onClick={() => atualizarStatusPedido(pedido.id, "pendente")}
-                      className={
-                        pedido.status === "pendente"
-                          ? "bg-yellow-500 hover:bg-yellow-600"
-                          : "border-yellow-300 text-yellow-600 hover:bg-yellow-50"
-                      }
+                  {pedidoSelecionado && (
+                    <Select
+                      value={pedidoSelecionado.status}
+                      onValueChange={(novoStatus) => atualizarStatusPedido(pedidoSelecionado.id, novoStatus)}
                     >
-                      Pendente
-                    </Button>
-                    <Button
-                      size="sm"
-                      variant={pedido.status === "producao" ? "default" : "outline"}
-                      onClick={() => atualizarStatusPedido(pedido.id, "producao")}
-                      className={
-                        pedido.status === "producao"
-                          ? "bg-blue-500 hover:bg-blue-600"
-                          : "border-blue-300 text-blue-600 hover:bg-blue-50"
-                      }
-                    >
-                      Produção
-                    </Button>
-                    <Button
-                      size="sm"
-                      variant={pedido.status === "entregue" ? "default" : "outline"}
-                      onClick={() => atualizarStatusPedido(pedido.id, "entregue")}
-                      className={
-                        pedido.status === "entregue"
-                          ? "bg-green-500 hover:bg-green-600"
-                          : "border-green-300 text-green-600 hover:bg-green-50"
-                      }
-                    >
-                      Entregue
-                    </Button>
-                  </div>
+                      <SelectTrigger className="w-40 h-8 border-pink-200">
+                        <SelectValue />
+                      </SelectTrigger>
+                      <SelectContent>
+                        <SelectItem value="Pendente">Pendente</SelectItem>
+                        <SelectItem value="Em Produção">Em Produção</SelectItem>
+                        <SelectItem value="Entregue">Entregue</SelectItem>
+                        <SelectItem value="Cancelado">Cancelado</SelectItem>
+                        <SelectItem value="Finalizado">Finalizado</SelectItem>
+                      </SelectContent>
+                    </Select>
+                  )}
                 </div>
-              ))
-            )}
-          </div>
-        </CardContent>
-      </Card>
+
+                <AlertDialog>
+                  <AlertDialogTrigger asChild>
+                    <Button
+                      variant="outline"
+                      size="sm"
+                      className="text-red-600 hover:text-red-700 border-red-300 hover:bg-red-50 bg-transparent"
+                    >
+                      <Trash2 className="h-4 w-4 mr-1" />
+                      Excluir
+                    </Button>
+                  </AlertDialogTrigger>
+                  <AlertDialogContent>
+                    <AlertDialogHeader>
+                      <AlertDialogTitle>Confirmar Exclusão</AlertDialogTitle>
+                      <AlertDialogDescription>
+                        Tem certeza que deseja excluir o pedido #{pedidoSelecionado?.id.slice(-6)} de{" "}
+                        {pedidoSelecionado?.usuario.nome}? Esta ação não pode ser desfeita.
+                      </AlertDialogDescription>
+                    </AlertDialogHeader>
+                    <AlertDialogFooter>
+                      <AlertDialogCancel>Cancelar</AlertDialogCancel>
+                      <AlertDialogAction
+                        onClick={() => pedidoSelecionado && excluirPedido(pedidoSelecionado.id)}
+                        className="bg-red-600 hover:bg-red-700"
+                      >
+                        Excluir Pedido
+                      </AlertDialogAction>
+                    </AlertDialogFooter>
+                  </AlertDialogContent>
+                </AlertDialog>
+              </div>
+            </div>
+          </DialogContent>
+        </Dialog>
+      </div>
     </div>
   )
 }

@@ -8,6 +8,7 @@ import { Label } from "@/components/ui/label"
 import { Textarea } from "@/components/ui/textarea"
 import { Badge } from "@/components/ui/badge"
 import { Heart, Package, ShoppingCart, Sparkles, Plus, Trash2, Edit, Save } from "lucide-react"
+import { useToast } from "@/hooks/use-toast"
 import type { User as UserType } from "../types/user"
 import type { BemCasado, Recheio, Embalagem, ItemCarrinho } from "../types/bem-casado"
 
@@ -16,6 +17,7 @@ interface BemCasadoBuilderProps {
 }
 
 export default function BemCasadoBuilder({ user }: BemCasadoBuilderProps) {
+  const { toast } = useToast()
   const [bemCasado, setBemCasado] = useState<BemCasado>({
     recheio: null,
     embalagem: null,
@@ -77,12 +79,20 @@ export default function BemCasadoBuilder({ user }: BemCasadoBuilderProps) {
 
   const adicionarAoCarrinho = () => {
     if (!bemCasado.recheio || !bemCasado.embalagem) {
-      alert("Por favor, selecione um recheio e uma embalagem!")
+      toast({
+        title: "🚫 Seleção incompleta",
+        description: "Por favor, selecione um recheio e uma embalagem!",
+        variant: "destructive",
+      })
       return
     }
 
     if (bemCasado.quantidade < 50) {
-      alert("Quantidade mínima é de 50 unidades!")
+      toast({
+        title: "⚠️ Quantidade inválida",
+        description: "Quantidade mínima é de 50 unidades!",
+        variant: "destructive",
+      })
       return
     }
 
@@ -107,11 +117,18 @@ export default function BemCasadoBuilder({ user }: BemCasadoBuilderProps) {
       observacoes: "",
     })
 
-    alert("Item adicionado ao carrinho!")
+    toast({
+      title: "✅ Item adicionado!",
+      description: `${bemCasado.quantidade}x ${bemCasado.recheio.nome} + ${bemCasado.embalagem.nome}`,
+    })
   }
 
   const removerDoCarrinho = (itemId: string) => {
     setCarrinho(carrinho.filter((item) => item.id !== itemId))
+    toast({
+      title: "🗑️ Item removido",
+      description: "Item removido do carrinho.",
+    })
   }
 
   const editarItem = (item: ItemCarrinho) => {
@@ -153,7 +170,10 @@ export default function BemCasadoBuilder({ user }: BemCasadoBuilderProps) {
       observacoes: "",
     })
 
-    alert("Item atualizado!")
+    toast({
+      title: "✏️ Item atualizado!",
+      description: "Item atualizado com sucesso.",
+    })
   }
 
   const cancelarEdicao = () => {
@@ -167,9 +187,11 @@ export default function BemCasadoBuilder({ user }: BemCasadoBuilderProps) {
   }
 
   const limparCarrinho = () => {
-    if (confirm("Tem certeza que deseja limpar todo o carrinho?")) {
-      setCarrinho([])
-    }
+    setCarrinho([])
+    toast({
+      title: "🧹 Carrinho limpo",
+      description: "Todos os itens foram removidos do carrinho.",
+    })
   }
 
   const calcularTotalCarrinho = () => {
@@ -178,7 +200,11 @@ export default function BemCasadoBuilder({ user }: BemCasadoBuilderProps) {
 
   const finalizarPedido = () => {
     if (carrinho.length === 0) {
-      alert("Adicione pelo menos um item ao carrinho!")
+      toast({
+        title: "🛒 Carrinho vazio",
+        description: "Adicione pelo menos um item ao carrinho!",
+        variant: "destructive",
+      })
       return
     }
 
@@ -199,7 +225,7 @@ export default function BemCasadoBuilder({ user }: BemCasadoBuilderProps) {
     // Criar mensagem detalhada para WhatsApp
     let mensagem = `🍰 NOVO PEDIDO DE BEM CASADO 🍰
 
-👤 Cliente: ${user.nome}
+👤 Cliente: ${user.name}
 📞 Telefone: ${user.telefone}
 📧 Email: ${user.email}
 📍 Endereço: ${user.endereco}
@@ -229,84 +255,106 @@ ${index + 1}. ${item.recheio.nome} + ${item.embalagem.nome}
     const whatsappUrl = `https://wa.me/5511999999999?text=${encodeURIComponent(mensagem.trim())}`
     window.open(whatsappUrl, "_blank")
 
-    alert("Pedido enviado com sucesso!")
+    toast({
+      title: "🎉 Pedido enviado!",
+      description: "Pedido enviado com sucesso via WhatsApp.",
+    })
 
     // Limpar carrinho
     setCarrinho([])
   }
 
   return (
-    <div className="container mx-auto px-4 py-8">
-      <div className="text-center mb-8">
-        <h2 className="text-3xl font-bold text-gray-800 mb-2">Monte seu Bem Casado</h2>
-        <p className="text-gray-600">Crie diferentes combinações e adicione ao carrinho!</p>
+    <div className="container mx-auto px-4 py-4">
+      {/* Título Compacto */}
+      <div className="text-center mb-4">
+        <h2 className="text-xl font-bold text-gray-800 mb-1">Monte seu Bem Casado</h2>
+        <p className="text-sm text-gray-600">Crie diferentes combinações e adicione ao carrinho!</p>
       </div>
 
-      <div className="grid lg:grid-cols-3 gap-8">
-        {/* Área de Montagem Visual */}
-        <div className="lg:col-span-2 space-y-6">
-          <Card className="bg-gradient-to-br from-pink-50 to-rose-50 border-pink-200">
-            <CardHeader>
-              <CardTitle className="flex items-center gap-2 text-pink-700">
-                <Sparkles className="h-5 w-5 text-pink-500" />
-                {editandoItem ? "Editando Item" : "Monte seu Bem Casado"}
-              </CardTitle>
-            </CardHeader>
-            <CardContent>
-              <div className="relative w-64 h-64 mx-auto mb-6">
-                {/* Base do bem casado */}
-                <div className="absolute inset-0 bg-yellow-100 rounded-full border-4 border-yellow-200 shadow-lg">
-                  {/* Recheio */}
-                  {bemCasado.recheio && (
-                    <div
-                      className="absolute inset-4 rounded-full opacity-80 flex items-center justify-center text-white font-bold text-sm"
-                      style={{ backgroundColor: bemCasado.recheio.cor }}
-                    >
-                      {bemCasado.recheio.nome}
-                    </div>
-                  )}
+      <div className="grid lg:grid-cols-4 gap-4">
+        {/* Área de Montagem Visual - Compacta */}
+        <div className="lg:col-span-3 space-y-4">
+          <div className="grid lg:grid-cols-3 gap-4">
+            {/* Preview Visual - Menor */}
+            <Card className="bg-gradient-to-br from-pink-50 to-rose-50 border-pink-200">
+              <CardHeader className="pb-2">
+                <CardTitle className="flex items-center gap-2 text-pink-700 text-sm">
+                  <Sparkles className="h-4 w-4 text-pink-500" />
+                  {editandoItem ? "Editando" : "Preview"}
+                </CardTitle>
+              </CardHeader>
+              <CardContent className="pt-0">
+                <div className="relative w-24 h-24 mx-auto mb-3">
+                  {/* Base do bem casado */}
+                  <div className="absolute inset-0 bg-yellow-100 rounded-full border-2 border-yellow-200 shadow-md">
+                    {/* Recheio */}
+                    {bemCasado.recheio && (
+                      <div
+                        className="absolute inset-2 rounded-full opacity-80 flex items-center justify-center text-white font-bold text-xs"
+                        style={{ backgroundColor: bemCasado.recheio.cor }}
+                      >
+                        {bemCasado.recheio.nome.split(" ")[0]}
+                      </div>
+                    )}
 
-                  {/* Embalagem */}
-                  {bemCasado.embalagem && (
-                    <div
-                      className="absolute -inset-2 rounded-full border-8 opacity-60"
-                      style={{ borderColor: bemCasado.embalagem.cor }}
-                    />
+                    {/* Embalagem */}
+                    {bemCasado.embalagem && (
+                      <div
+                        className="absolute -inset-1 rounded-full border-4 opacity-60"
+                        style={{ borderColor: bemCasado.embalagem.cor }}
+                      />
+                    )}
+                  </div>
+
+                  {/* Instruções */}
+                  {!bemCasado.recheio && !bemCasado.embalagem && (
+                    <div className="absolute inset-0 flex items-center justify-center text-gray-400 text-center">
+                      <div>
+                        <Heart className="h-5 w-5 mx-auto mb-1" />
+                        <p className="text-xs">Escolha recheio e embalagem</p>
+                      </div>
+                    </div>
                   )}
                 </div>
 
-                {/* Instruções */}
-                {!bemCasado.recheio && !bemCasado.embalagem && (
-                  <div className="absolute inset-0 flex items-center justify-center text-gray-400 text-center">
-                    <div>
-                      <Heart className="h-8 w-8 mx-auto mb-2" />
-                      <p className="text-sm">Escolha o recheio e embalagem</p>
-                    </div>
+                {/* Badges Compactas */}
+                {(bemCasado.recheio || bemCasado.embalagem) && (
+                  <div className="space-y-1 text-center mb-3">
+                    {bemCasado.recheio && (
+                      <Badge variant="secondary" className="text-xs bg-pink-100 text-pink-800 block">
+                        {bemCasado.recheio.nome}
+                      </Badge>
+                    )}
+                    {bemCasado.embalagem && (
+                      <Badge variant="secondary" className="text-xs bg-pink-100 text-pink-800 block">
+                        {bemCasado.embalagem.nome}
+                      </Badge>
+                    )}
                   </div>
                 )}
-              </div>
 
-              {/* Informações do bem casado montado */}
-              {(bemCasado.recheio || bemCasado.embalagem) && (
-                <div className="space-y-2 text-center mb-6">
-                  {bemCasado.recheio && (
-                    <Badge variant="secondary" className="mr-2 bg-pink-100 text-pink-800">
-                      Recheio: {bemCasado.recheio.nome}
-                    </Badge>
-                  )}
-                  {bemCasado.embalagem && (
-                    <Badge variant="secondary" className="bg-pink-100 text-pink-800">
-                      Embalagem: {bemCasado.embalagem.nome}
-                    </Badge>
-                  )}
-                </div>
-              )}
+                {/* Subtotal Compacto */}
+                {bemCasado.recheio && bemCasado.embalagem && (
+                  <div className="p-2 bg-pink-50 rounded text-center border border-pink-200">
+                    <div className="text-sm font-bold text-pink-600">
+                      R$ {((bemCasado.recheio.preco + bemCasado.embalagem.preco) * bemCasado.quantidade).toFixed(2)}
+                    </div>
+                    <div className="text-xs text-gray-600">{bemCasado.quantidade} un.</div>
+                  </div>
+                )}
+              </CardContent>
+            </Card>
 
-              {/* Formulário de configuração */}
-              <div className="space-y-4">
+            {/* Configurações - Compactas */}
+            <Card className="border-pink-200">
+              <CardHeader className="pb-2">
+                <CardTitle className="text-sm text-pink-700">Configurações</CardTitle>
+              </CardHeader>
+              <CardContent className="pt-0 space-y-3">
                 <div>
-                  <Label htmlFor="quantidade" className="text-gray-700">
-                    Quantidade (mínimo 50)
+                  <Label htmlFor="quantidade" className="text-xs text-gray-700">
+                    Quantidade (mín. 50)
                   </Label>
                   <Input
                     id="quantidade"
@@ -314,88 +362,82 @@ ${index + 1}. ${item.recheio.nome} + ${item.embalagem.nome}
                     min="50"
                     value={bemCasado.quantidade}
                     onChange={(e) => setBemCasado({ ...bemCasado, quantidade: Number.parseInt(e.target.value) || 50 })}
-                    className="border-pink-200 focus:border-pink-500 focus:ring-pink-500"
+                    className="h-8 text-sm border-pink-200 focus:border-pink-500 focus:ring-pink-500"
                   />
                 </div>
 
                 <div>
-                  <Label htmlFor="observacoes" className="text-gray-700">
-                    Observações para este item
+                  <Label htmlFor="observacoes" className="text-xs text-gray-700">
+                    Observações
                   </Label>
                   <Textarea
                     id="observacoes"
-                    placeholder="Observações específicas para esta combinação..."
+                    placeholder="Observações..."
                     value={bemCasado.observacoes}
                     onChange={(e) => setBemCasado({ ...bemCasado, observacoes: e.target.value })}
-                    className="border-pink-200 focus:border-pink-500 focus:ring-pink-500"
+                    className="h-16 text-sm border-pink-200 focus:border-pink-500 focus:ring-pink-500 resize-none"
                   />
                 </div>
 
-                {bemCasado.recheio && bemCasado.embalagem && (
-                  <div className="p-4 bg-pink-50 rounded-lg border border-pink-200">
-                    <div className="text-lg font-bold text-pink-600">
-                      Subtotal: R${" "}
-                      {((bemCasado.recheio.preco + bemCasado.embalagem.preco) * bemCasado.quantidade).toFixed(2)}
-                    </div>
-                    <div className="text-sm text-gray-600">{bemCasado.quantidade} unidades</div>
-                  </div>
-                )}
-
-                <div className="flex gap-2">
+                <div className="flex gap-1">
                   {editandoItem ? (
                     <>
                       <Button
                         onClick={salvarEdicao}
-                        className="flex-1 bg-green-500 hover:bg-green-600"
+                        size="sm"
+                        className="flex-1 bg-green-500 hover:bg-green-600 h-8 text-xs"
                         disabled={!bemCasado.recheio || !bemCasado.embalagem}
                       >
-                        <Save className="h-4 w-4 mr-2" />
-                        Salvar Alterações
+                        <Save className="h-3 w-3 mr-1" />
+                        Salvar
                       </Button>
-                      <Button onClick={cancelarEdicao} variant="outline" className="flex-1 bg-transparent">
+                      <Button
+                        onClick={cancelarEdicao}
+                        variant="outline"
+                        size="sm"
+                        className="flex-1 h-8 text-xs bg-transparent"
+                      >
                         Cancelar
                       </Button>
                     </>
                   ) : (
                     <Button
                       onClick={adicionarAoCarrinho}
-                      className="w-full bg-pink-500 hover:bg-pink-600"
+                      size="sm"
+                      className="w-full bg-pink-500 hover:bg-pink-600 h-8 text-xs"
                       disabled={!bemCasado.recheio || !bemCasado.embalagem}
                     >
-                      <Plus className="h-4 w-4 mr-2" />
-                      Adicionar ao Carrinho
+                      <Plus className="h-3 w-3 mr-1" />
+                      Adicionar
                     </Button>
                   )}
                 </div>
-              </div>
-            </CardContent>
-          </Card>
+              </CardContent>
+            </Card>
 
-          {/* Opções de Recheio e Embalagem */}
-          <div className="grid md:grid-cols-2 gap-6">
-            {/* Recheios */}
+            {/* Recheios - Grid Compacto */}
             <Card className="border-pink-200">
-              <CardHeader>
-                <CardTitle className="flex items-center gap-2 text-pink-700">
-                  <Heart className="h-5 w-5 text-pink-500" />
-                  Escolha o Recheio
+              <CardHeader className="pb-2">
+                <CardTitle className="flex items-center gap-2 text-pink-700 text-sm">
+                  <Heart className="h-4 w-4 text-pink-500" />
+                  Recheios
                 </CardTitle>
               </CardHeader>
-              <CardContent>
-                <div className="grid grid-cols-1 gap-3">
+              <CardContent className="pt-0">
+                <div className="grid grid-cols-2 gap-2">
                   {recheios.map((recheio) => (
                     <button
                       key={recheio.id}
                       onClick={() => setBemCasado({ ...bemCasado, recheio })}
-                      className={`p-3 rounded-lg border-2 transition-all hover:scale-105 flex items-center gap-3 ${
+                      className={`p-2 rounded border-2 transition-all hover:scale-105 flex flex-col items-center gap-1 ${
                         bemCasado.recheio?.id === recheio.id
                           ? "border-pink-500 bg-pink-50"
                           : "border-gray-200 hover:border-pink-300"
                       }`}
                     >
-                      <div className="w-8 h-8 rounded-full" style={{ backgroundColor: recheio.cor }} />
-                      <div className="flex-1 text-left">
-                        <div className="text-sm font-medium">{recheio.nome}</div>
+                      <div className="w-5 h-5 rounded-full" style={{ backgroundColor: recheio.cor }} />
+                      <div className="text-center">
+                        <div className="text-xs font-medium">{recheio.nome}</div>
                         <div className="text-xs text-gray-500">R$ {recheio.preco.toFixed(2)}</div>
                       </div>
                     </button>
@@ -403,50 +445,50 @@ ${index + 1}. ${item.recheio.nome} + ${item.embalagem.nome}
                 </div>
               </CardContent>
             </Card>
-
-            {/* Embalagens */}
-            <Card className="border-pink-200">
-              <CardHeader>
-                <CardTitle className="flex items-center gap-2 text-pink-700">
-                  <Package className="h-5 w-5 text-pink-500" />
-                  Escolha a Embalagem
-                </CardTitle>
-              </CardHeader>
-              <CardContent>
-                <div className="grid grid-cols-1 gap-3">
-                  {embalagens.map((embalagem) => (
-                    <button
-                      key={embalagem.id}
-                      onClick={() => setBemCasado({ ...bemCasado, embalagem })}
-                      className={`p-3 rounded-lg border-2 transition-all hover:scale-105 flex items-center gap-3 ${
-                        bemCasado.embalagem?.id === embalagem.id
-                          ? "border-pink-500 bg-pink-50"
-                          : "border-gray-200 hover:border-pink-300"
-                      }`}
-                    >
-                      <div
-                        className="w-8 h-8 rounded-lg border-4"
-                        style={{ borderColor: embalagem.cor, backgroundColor: `${embalagem.cor}20` }}
-                      />
-                      <div className="flex-1 text-left">
-                        <div className="text-sm font-medium">{embalagem.nome}</div>
-                        <div className="text-xs text-gray-500">+ R$ {embalagem.preco.toFixed(2)}</div>
-                      </div>
-                    </button>
-                  ))}
-                </div>
-              </CardContent>
-            </Card>
           </div>
+
+          {/* Embalagens - Linha Horizontal */}
+          <Card className="border-pink-200">
+            <CardHeader className="pb-2">
+              <CardTitle className="flex items-center gap-2 text-pink-700 text-sm">
+                <Package className="h-4 w-4 text-pink-500" />
+                Embalagens
+              </CardTitle>
+            </CardHeader>
+            <CardContent className="pt-0">
+              <div className="grid grid-cols-4 gap-2">
+                {embalagens.map((embalagem) => (
+                  <button
+                    key={embalagem.id}
+                    onClick={() => setBemCasado({ ...bemCasado, embalagem })}
+                    className={`p-2 rounded border-2 transition-all hover:scale-105 flex flex-col items-center gap-1 ${
+                      bemCasado.embalagem?.id === embalagem.id
+                        ? "border-pink-500 bg-pink-50"
+                        : "border-gray-200 hover:border-pink-300"
+                    }`}
+                  >
+                    <div
+                      className="w-5 h-5 rounded border-2"
+                      style={{ borderColor: embalagem.cor, backgroundColor: `${embalagem.cor}20` }}
+                    />
+                    <div className="text-center">
+                      <div className="text-xs font-medium">{embalagem.nome}</div>
+                      <div className="text-xs text-gray-500">+ R$ {embalagem.preco.toFixed(2)}</div>
+                    </div>
+                  </button>
+                ))}
+              </div>
+            </CardContent>
+          </Card>
         </div>
 
-        {/* Carrinho */}
-        <div className="space-y-6">
+        {/* Carrinho - Compacto */}
+        <div className="space-y-4">
           <Card className="border-pink-200">
-            <CardHeader>
+            <CardHeader className="pb-2">
               <div className="flex items-center justify-between">
-                <CardTitle className="flex items-center gap-2 text-pink-700">
-                  <ShoppingCart className="h-5 w-5 text-pink-500" />
+                <CardTitle className="flex items-center gap-2 text-pink-700 text-sm">
+                  <ShoppingCart className="h-4 w-4 text-pink-500" />
                   Carrinho ({carrinho.length})
                 </CardTitle>
                 {carrinho.length > 0 && (
@@ -454,44 +496,39 @@ ${index + 1}. ${item.recheio.nome} + ${item.embalagem.nome}
                     onClick={limparCarrinho}
                     variant="outline"
                     size="sm"
-                    className="text-red-600 hover:text-red-700 border-red-300 hover:bg-red-50 bg-transparent"
+                    className="text-red-600 hover:text-red-700 border-red-300 hover:bg-red-50 h-6 text-xs px-2 bg-transparent"
                   >
                     Limpar
                   </Button>
                 )}
               </div>
             </CardHeader>
-            <CardContent>
+            <CardContent className="pt-0">
               {carrinho.length === 0 ? (
-                <div className="text-center py-8 text-gray-500">
-                  <ShoppingCart className="h-12 w-12 mx-auto mb-4 opacity-50" />
-                  <p>Seu carrinho está vazio</p>
-                  <p className="text-sm">Adicione itens para continuar</p>
+                <div className="text-center py-4 text-gray-500">
+                  <ShoppingCart className="h-8 w-8 mx-auto mb-2 opacity-50" />
+                  <p className="text-xs">Carrinho vazio</p>
                 </div>
               ) : (
-                <div className="space-y-4">
+                <div className="space-y-2">
                   {carrinho.map((item) => (
-                    <div key={item.id} className="border rounded-lg p-4 space-y-3 border-pink-200">
-                      <div className="flex items-start justify-between">
-                        <div className="flex-1">
-                          <div className="font-medium text-sm">
-                            {item.recheio.nome} + {item.embalagem.nome}
-                          </div>
-                          <div className="text-xs text-gray-500">
-                            {item.quantidade} unidades • R$ {item.subtotal.toFixed(2)}
-                          </div>
-                          {item.observacoes && (
-                            <div className="text-xs text-gray-600 mt-1 italic">"{item.observacoes}"</div>
-                          )}
+                    <div key={item.id} className="border rounded p-2 space-y-2 border-pink-200">
+                      <div>
+                        <div className="font-medium text-xs">
+                          {item.recheio.nome} + {item.embalagem.nome}
                         </div>
+                        <div className="text-xs text-gray-500">
+                          {item.quantidade} un. • R$ {item.subtotal.toFixed(2)}
+                        </div>
+                        {item.observacoes && <div className="text-xs text-gray-600 italic">"{item.observacoes}"</div>}
                       </div>
 
-                      <div className="flex gap-2">
+                      <div className="flex gap-1">
                         <Button
                           onClick={() => editarItem(item)}
                           size="sm"
                           variant="outline"
-                          className="flex-1 border-pink-300 text-pink-600 hover:bg-pink-50"
+                          className="flex-1 border-pink-300 text-pink-600 hover:bg-pink-50 h-6 text-xs"
                           disabled={editandoItem !== null}
                         >
                           <Edit className="h-3 w-3 mr-1" />
@@ -501,7 +538,7 @@ ${index + 1}. ${item.recheio.nome} + ${item.embalagem.nome}
                           onClick={() => removerDoCarrinho(item.id)}
                           size="sm"
                           variant="outline"
-                          className="text-red-600 hover:text-red-700 border-red-300 hover:bg-red-50"
+                          className="text-red-600 hover:text-red-700 border-red-300 hover:bg-red-50 h-6 px-2"
                         >
                           <Trash2 className="h-3 w-3" />
                         </Button>
@@ -509,16 +546,20 @@ ${index + 1}. ${item.recheio.nome} + ${item.embalagem.nome}
                     </div>
                   ))}
 
-                  <div className="border-t pt-4 border-pink-200">
-                    <div className="flex justify-between items-center mb-4">
-                      <span className="font-bold">Total:</span>
-                      <span className="text-2xl font-bold text-pink-600">R$ {calcularTotalCarrinho().toFixed(2)}</span>
+                  <div className="border-t pt-2 border-pink-200">
+                    <div className="flex justify-between items-center mb-2">
+                      <span className="font-bold text-sm">Total:</span>
+                      <span className="text-lg font-bold text-pink-600">R$ {calcularTotalCarrinho().toFixed(2)}</span>
                     </div>
-                    <div className="text-sm text-gray-600 mb-4">
-                      {carrinho.reduce((total, item) => total + item.quantidade, 0)} unidades no total
+                    <div className="text-xs text-gray-600 mb-2">
+                      {carrinho.reduce((total, item) => total + item.quantidade, 0)} unidades
                     </div>
-                    <Button onClick={finalizarPedido} className="w-full bg-green-500 hover:bg-green-600">
-                      Finalizar Pedido via WhatsApp
+                    <Button
+                      onClick={finalizarPedido}
+                      size="sm"
+                      className="w-full bg-green-500 hover:bg-green-600 h-8 text-xs"
+                    >
+                      Finalizar via WhatsApp
                     </Button>
                   </div>
                 </div>
